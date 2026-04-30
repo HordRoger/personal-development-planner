@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Piano di Miglioramento Team</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell" id="appShell" aria-label="Piano di miglioramento personale">
+      <button
+        id="toggleLeftSidebar"
+        class="sidebar-toggle sidebar-toggle-left"
+        type="button"
+        aria-label="Nascondi menu membro"
+        title="Nascondi menu membro"
+      >
+        <span aria-hidden="true">&lt;</span>
+      </button>
+      <button
+        id="toggleRightSidebar"
+        class="sidebar-toggle sidebar-toggle-right"
+        type="button"
+        aria-label="Nascondi toolbox"
+        title="Nascondi toolbox"
+      >
+        <span aria-hidden="true">&gt;</span>
+      </button>
+
+      <aside class="sidebar sidebar-left" aria-label="Membro del team">
+        <div class="brand-block">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <p class="eyebrow">Team growth</p>
+            <h1>Piano personale</h1>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>Membro</h2>
+            <span id="memberCount" class="counter">0</span>
+          </div>
+
+          <label class="field-label" for="memberSelect">Seleziona</label>
+          <select id="memberSelect" class="field"></select>
+
+          <div class="split-fields">
+            <label>
+              <span class="field-label">Nome</span>
+              <input id="memberName" class="field" type="text" placeholder="Nuovo membro" />
+            </label>
+            <label>
+              <span class="field-label">Ruolo</span>
+              <input id="memberRole" class="field" type="text" placeholder="Ruolo" />
+            </label>
+          </div>
+
+          <button id="saveMember" class="primary-action" type="button">
+            <span class="button-icon" aria-hidden="true">+</span>
+            Salva membro
+          </button>
+        </section>
+
+        <section class="member-card" aria-live="polite">
+          <div class="avatar" id="memberAvatar">--</div>
+          <div>
+            <p id="activeMemberName" class="member-name">Nessun membro</p>
+            <p id="activeMemberRole" class="member-role">Profilo non selezionato</p>
+          </div>
+        </section>
+
+        <section class="panel compact">
+          <div class="panel-header">
+            <h2>Obiettivi</h2>
+            <button id="addGoal" class="icon-button" type="button" aria-label="Aggiungi obiettivo" title="Aggiungi obiettivo">
+              +
+            </button>
+          </div>
+          <div id="goalList" class="goal-list"></div>
+        </section>
+      </aside>
+
+      <section class="workspace" aria-label="Visualizzazione del piano">
+        <header class="workspace-header">
+          <div>
+            <p class="eyebrow">Roadmap individuale</p>
+            <h2 id="timelineTitle">Piano di miglioramento</h2>
+          </div>
+          <div class="timeline-controls" aria-label="Navigazione temporale">
+            <span id="timelineYear" class="timeline-year">Anno</span>
+            <button id="goCurrentWeek" class="scale-button current-week-button" type="button">Week corrente</button>
+          </div>
+        </header>
+
+        <div class="timeline-frame" id="timelineFrame" data-testid="timeline-frame">
+          <div id="timeAxis" class="time-axis" aria-hidden="true"></div>
+          <div id="planGrid" class="plan-grid"></div>
+        </div>
+      </section>
+
+      <aside class="sidebar sidebar-right" aria-label="Tool">
+        <div class="panel-header standalone">
+          <div>
+            <p class="eyebrow">Toolbox</p>
+            <h2>Tool</h2>
+          </div>
+        </div>
+
+        <div class="tool-list" id="toolList">
+          <button class="tool-item tool-draggable active" type="button" draggable="true" data-tool="line" data-testid="tool-line">
+            <span class="tool-icon line-tool" aria-hidden="true"></span>
+            <span>
+              <strong>Linea obiettivo</strong>
+              <small>Elemento griglia</small>
+            </span>
+          </button>
+          <button class="tool-item tool-draggable" type="button" draggable="true" data-tool="criterion" data-testid="tool-criterion">
+            <span class="tool-icon circle-tool" aria-hidden="true"></span>
+            <span>
+              <strong>Cerchio criterio</strong>
+              <small>Milestone</small>
+            </span>
+          </button>
+        </div>
+
+        <section class="panel tool-panel">
+          <h2>Focus</h2>
+          <div class="metric">
+            <span>Obiettivi attivi</span>
+            <strong id="activeGoalsMetric">0</strong>
+          </div>
+          <div class="metric">
+            <span>Avanzamento medio</span>
+            <strong id="progressMetric">0%</strong>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <template id="goalTemplate">
+      <article class="goal-editor">
+        <input class="goal-title-input" type="text" aria-label="Titolo obiettivo" />
+        <div class="goal-editor-row">
+          <span class="goal-range">Settimane</span>
+          <button class="remove-goal" type="button" aria-label="Rimuovi obiettivo" title="Rimuovi obiettivo">x</button>
+        </div>
+        <div class="criteria-block">
+          <div class="criteria-header">
+            <span>Criteri</span>
+            <button class="add-criterion" type="button" aria-label="Aggiungi criterio" title="Aggiungi criterio">+</button>
+          </div>
+          <div class="criteria-list"></div>
+        </div>
+      </article>
+    </template>
+
+    <template id="criterionTemplate">
+      <div class="criterion-editor">
+        <input class="criterion-label-input" type="text" aria-label="Criterio di avanzamento" placeholder="Criterio" />
+        <select class="criterion-status-input" aria-label="Stato criterio">
+          <option value="locked">Bloccato</option>
+          <option value="unlocked">Sbloccato</option>
+        </select>
+        <button class="remove-criterion" type="button" aria-label="Rimuovi criterio" title="Rimuovi criterio">x</button>
+      </div>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
