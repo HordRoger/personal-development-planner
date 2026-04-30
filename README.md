@@ -16,7 +16,7 @@ Apri `index.html` nel browser. I dati vengono salvati nel `localStorage` del bro
 - drag and drop dalla sidebar destra verso la griglia;
 - snap degli estremi linea e dei criteri sulle settimane;
 - sidebar destra con tool di creazione;
-- scala temporale a 13, 26 o 52 settimane.
+- timeline annuale scrollabile con tasto per tornare alla settimana corrente.
 
 ## Crediti icone
 
