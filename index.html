@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Piano di Miglioramento Team</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -17,16 +20,6 @@
       >
         <span aria-hidden="true">&lt;</span>
       </button>
-      <button
-        id="toggleRightSidebar"
-        class="sidebar-toggle sidebar-toggle-right"
-        type="button"
-        aria-label="Nascondi toolbox"
-        title="Nascondi toolbox"
-      >
-        <span aria-hidden="true">&gt;</span>
-      </button>
-
       <aside class="sidebar sidebar-left" aria-label="Membro del team">
         <section class="panel member-panel">
           <div class="panel-header">
@@ -76,10 +69,19 @@
             <p class="eyebrow">Roadmap individuale</p>
             <div class="workspace-title-row">
               <button id="goCurrentWeek" class="scale-button current-week-button" type="button">Week corrente</button>
+              <button id="goRoadmap" class="scale-button roadmap-button" type="button">Roadmap</button>
             </div>
           </div>
           <div class="timeline-controls" aria-label="Navigazione temporale">
+            <div class="timeline-zoom-controls" aria-label="Scala timeline">
+              <button id="zoomTimelineOut" class="zoom-button" type="button" aria-label="Mostra mesi" title="Mostra mesi">-</button>
+              <span id="timelineZoomLabel" class="timeline-zoom-label">Settimane</span>
+              <button id="zoomTimelineIn" class="zoom-button" type="button" aria-label="Mostra giorni" title="Mostra giorni">+</button>
+            </div>
             <span id="timelineYear" class="timeline-year">Anno</span>
+            <button id="toggleTheme" class="theme-toggle" type="button" aria-label="Passa al tema chiaro" title="Passa al tema chiaro">
+              Tema chiaro
+            </button>
             <span id="saveStatus" class="save-status" aria-live="polite">Salvataggio locale</span>
           </div>
         </header>
@@ -87,34 +89,22 @@
         <div class="timeline-frame" id="timelineFrame" data-testid="timeline-frame">
           <div id="timeAxis" class="time-axis" aria-hidden="true"></div>
           <div id="planGrid" class="plan-grid"></div>
+          <div id="timelineHoverLine" class="timeline-hover-line" hidden></div>
+          <button id="addGoalButton" class="timeline-add-goal" type="button" aria-label="Aggiungi obiettivo" title="Aggiungi obiettivo">+</button>
         </div>
+
+        <section id="roadmapSection" class="roadmap-section" aria-label="Roadmap ad albero">
+          <header class="roadmap-header">
+            <div>
+              <p class="eyebrow">Roadmap</p>
+              <h2>Albero obiettivi</h2>
+            </div>
+            <span id="roadmapMember" class="roadmap-member">Nessun membro</span>
+          </header>
+          <div id="roadmapCanvas" class="roadmap-canvas" tabindex="0" aria-label="Roadmap scrollabile"></div>
+        </section>
       </section>
 
-      <aside class="sidebar sidebar-right" aria-label="Tool">
-        <div class="panel-header standalone">
-          <div>
-            <p class="eyebrow">Toolbox</p>
-            <h2>Tool</h2>
-          </div>
-        </div>
-
-        <div class="tool-list" id="toolList">
-          <button class="tool-item tool-draggable active" type="button" draggable="true" data-tool="line" data-testid="tool-line">
-            <span class="tool-icon line-tool" aria-hidden="true"></span>
-            <span>
-              <strong>Linea obiettivo</strong>
-              <small>Elemento griglia</small>
-            </span>
-          </button>
-          <button class="tool-item tool-draggable" type="button" draggable="true" data-tool="criterion" data-testid="tool-criterion">
-            <span class="tool-icon circle-tool" aria-hidden="true"></span>
-            <span>
-              <strong>Cerchio criterio</strong>
-              <small>Milestone</small>
-            </span>
-          </button>
-        </div>
-      </aside>
     </main>
 
     <div id="goalPopup" class="goal-popup" hidden>

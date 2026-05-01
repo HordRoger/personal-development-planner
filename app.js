@@ -9,6 +9,26 @@ const DEFAULT_TIMELINE_WEEKS = getISOWeeksInYear(DEFAULT_TIMELINE_YEAR);
 const DEFAULT_TIMELINE_START_DATE = getISOYearStartISO(DEFAULT_TIMELINE_YEAR);
 const LOCK_ICON_URL = "padlock.png";
 const UNLOCK_ICON_URL = "open-padlock.png";
+const SVG_NS = "http://www.w3.org/2000/svg";
+const ROADMAP_COLORS = ["#28f879", "#ffd21a", "#ff1630", "#36a8ff", "#ff7a2f", "#c47cff", "#2de2d1", "#f052b8"];
+const WORKSPACE_VIEW_TIMELINE = "timeline";
+const WORKSPACE_VIEW_ROADMAP = "roadmap";
+const THEME_DARK = "dark";
+const THEME_LIGHT = "light";
+const TIMELINE_ZOOM_MONTH = "month";
+const TIMELINE_ZOOM_WEEK = "week";
+const TIMELINE_ZOOM_DAY = "day";
+const TIMELINE_ZOOM_LEVELS = [TIMELINE_ZOOM_MONTH, TIMELINE_ZOOM_WEEK, TIMELINE_ZOOM_DAY];
+const TIMELINE_ZOOM_LABELS = {
+  [TIMELINE_ZOOM_MONTH]: "Mesi",
+  [TIMELINE_ZOOM_WEEK]: "Settimane",
+  [TIMELINE_ZOOM_DAY]: "Giorni",
+};
+const TIMELINE_UNIT_WIDTHS = {
+  [TIMELINE_ZOOM_MONTH]: 128,
+  [TIMELINE_ZOOM_WEEK]: 72,
+  [TIMELINE_ZOOM_DAY]: 42,
+};
 
 const criteriaStatusLabels = {
   locked: "Bloccato",
@@ -82,8 +102,8 @@ const state = loadState();
 const initialLocalSavedAt = state.savedAt;
 const elements = {
   appShell: document.querySelector("#appShell"),
+  workspace: document.querySelector(".workspace"),
   toggleLeftSidebar: document.querySelector("#toggleLeftSidebar"),
-  toggleRightSidebar: document.querySelector("#toggleRightSidebar"),
   memberSelect: document.querySelector("#memberSelect"),
   memberName: document.querySelector("#memberName"),
   memberRole: document.querySelector("#memberRole"),
@@ -106,10 +126,19 @@ const elements = {
   timelineFrame: document.querySelector("#timelineFrame"),
   timeAxis: document.querySelector("#timeAxis"),
   planGrid: document.querySelector("#planGrid"),
-  toolList: document.querySelector("#toolList"),
+  timelineHoverLine: document.querySelector("#timelineHoverLine"),
+  addGoalButton: document.querySelector("#addGoalButton"),
+  zoomTimelineOut: document.querySelector("#zoomTimelineOut"),
+  zoomTimelineIn: document.querySelector("#zoomTimelineIn"),
+  timelineZoomLabel: document.querySelector("#timelineZoomLabel"),
   timelineYear: document.querySelector("#timelineYear"),
+  toggleTheme: document.querySelector("#toggleTheme"),
   saveStatus: document.querySelector("#saveStatus"),
   goCurrentWeek: document.querySelector("#goCurrentWeek"),
+  goRoadmap: document.querySelector("#goRoadmap"),
+  roadmapSection: document.querySelector("#roadmapSection"),
+  roadmapCanvas: document.querySelector("#roadmapCanvas"),
+  roadmapMember: document.querySelector("#roadmapMember"),
 };
 
 let activePopupGoalId = null;
@@ -117,6 +146,7 @@ let activePopupCriterionId = null;
 let goalPopupAnchorRect = null;
 let pendingCriterionFocus = null;
 let pendingDeleteMemberId = null;
+let roadmapPanState = null;
 const cloudSync = {
   ready: false,
   saveTimer: null,
@@ -166,7 +196,9 @@ function normalizeState(source) {
     savedAt: isValidDateValue(source?.savedAt) ? source.savedAt : null,
     ui: {
       leftCollapsed: Boolean(source?.ui?.leftCollapsed),
-      rightCollapsed: Boolean(source?.ui?.rightCollapsed),
+      activeView: source?.ui?.activeView === WORKSPACE_VIEW_ROADMAP ? WORKSPACE_VIEW_ROADMAP : WORKSPACE_VIEW_TIMELINE,
+      timelineZoom: TIMELINE_ZOOM_LEVELS.includes(source?.ui?.timelineZoom) ? source.ui.timelineZoom : TIMELINE_ZOOM_WEEK,
+      theme: source?.ui?.theme === THEME_LIGHT ? THEME_LIGHT : THEME_DARK,
     },
     members: Array.isArray(source?.members) && source.members.length ? source.members : fallback.members,
   };
@@ -481,23 +513,33 @@ function syncGoalProgress(goal) {
 
 function render() {
   const activeMember = getActiveMember();
-  const timelineMinWidth = LABEL_WIDTH + state.timelineWeeks * MIN_WEEK_WIDTH;
-  const currentWeekIndex = getCurrentTimelineWeekIndex();
-  document.documentElement.style.setProperty("--weeks", state.timelineWeeks);
-  document.documentElement.style.setProperty("--week-width", `${100 / state.timelineWeeks}%`);
+  const timelineUnits = getTimelineUnits();
+  const currentUnitIndex = getCurrentTimelineUnitIndex(timelineUnits);
+  const timelineUnitWidth = getTimelineUnitWidth();
+  const timelineMinWidth = LABEL_WIDTH + timelineUnits.length * timelineUnitWidth;
+  document.documentElement.style.setProperty("--weeks", timelineUnits.length);
+  document.documentElement.style.setProperty("--week-width", `${100 / timelineUnits.length}%`);
+  document.documentElement.style.setProperty("--timeline-unit-min-width", `${timelineUnitWidth}px`);
   document.documentElement.style.setProperty("--timeline-min-width", `${timelineMinWidth}px`);
   document.documentElement.style.setProperty("--row-label-width", `${LABEL_WIDTH}px`);
-  document.documentElement.style.setProperty("--current-week-left", `${(currentWeekIndex / state.timelineWeeks) * 100}%`);
-  document.documentElement.style.setProperty("--current-week-opacity", currentWeekIndex >= 0 ? "1" : "0");
+  document.documentElement.style.setProperty("--current-week-left", `${(currentUnitIndex / timelineUnits.length) * 100}%`);
+  document.documentElement.style.setProperty("--current-week-opacity", currentUnitIndex >= 0 ? "1" : "0");
   elements.timelineYear.textContent = `Anno ${state.timelineYear}`;
-  elements.goCurrentWeek.disabled = currentWeekIndex < 0;
+  elements.timelineZoomLabel.textContent = TIMELINE_ZOOM_LABELS[state.ui.timelineZoom];
+  elements.zoomTimelineOut.disabled = state.ui.timelineZoom === TIMELINE_ZOOM_MONTH;
+  elements.zoomTimelineIn.disabled = state.ui.timelineZoom === TIMELINE_ZOOM_DAY;
+  elements.goCurrentWeek.title = currentUnitIndex < 0 ? "Mostra griglia" : "Mostra griglia e vai al periodo corrente";
 
   renderMemberSelect(activeMember);
   renderMemberList(activeMember);
   renderMemberSummary(activeMember);
   renderGoalEditors(activeMember);
   renderTimeline(activeMember);
+  renderRoadmap(activeMember);
+  applyWorkspaceView();
   applySidebarState();
+  applyTheme();
+  window.requestAnimationFrame(updateTimelineOverlayPosition);
   persistState();
 }
 
@@ -622,20 +664,20 @@ function createCriterionEditor(goalId, criterion) {
 function renderTimeline(activeMember) {
   elements.timeAxis.innerHTML = "";
   elements.planGrid.innerHTML = "";
-  const currentWeekStart = getCurrentWeekStartISO();
+  const timelineUnits = getTimelineUnits();
+  const currentUnitIndex = getCurrentTimelineUnitIndex(timelineUnits);
 
   const axisGutter = document.createElement("div");
   axisGutter.className = "axis-gutter";
   elements.timeAxis.append(axisGutter);
 
-  for (let index = 0; index < state.timelineWeeks; index += 1) {
+  timelineUnits.forEach((unit, index) => {
     const marker = document.createElement("div");
-    const week = getTimelineWeekInfo(index);
-    marker.className = `time-marker${week.startISO === currentWeekStart ? " is-current" : ""}`;
-    marker.title = `Settimana ${week.week}: giorni ${week.dayRange}`;
-    marker.innerHTML = `<strong>S${week.week}</strong><small>${week.dayRange}</small>`;
+    marker.className = `time-marker${index === currentUnitIndex ? " is-current" : ""}`;
+    marker.title = unit.title;
+    marker.innerHTML = `<strong>${unit.label}</strong><small>${unit.detail}</small>`;
     elements.timeAxis.append(marker);
-  }
+  });
 
   if (!activeMember || activeMember.goals.length === 0) {
     const empty = document.createElement("div");
@@ -650,8 +692,9 @@ function renderTimeline(activeMember) {
     const row = document.createElement("section");
     row.className = "goal-row";
     row.dataset.goalId = goal.id;
-    row.style.setProperty("--bar-left", `${((goal.start - 1) / state.timelineWeeks) * 100}%`);
-    row.style.setProperty("--bar-width", `${(goal.duration / state.timelineWeeks) * 100}%`);
+    const placement = getGoalTimelinePlacement(goal);
+    row.style.setProperty("--bar-left", `${placement.left}%`);
+    row.style.setProperty("--bar-width", `${placement.width}%`);
     row.style.setProperty("--progress", `${goal.progress}%`);
 
     const label = document.createElement("div");
@@ -671,10 +714,8 @@ function renderTimeline(activeMember) {
 
     const line = document.createElement("div");
     line.className = "goal-line";
-    line.draggable = true;
     line.title = goal.title || "Linea obiettivo";
     line.setAttribute("aria-label", `Linea ${goal.title || "obiettivo"}`);
-    line.addEventListener("dragstart", (event) => startDrag(event, { kind: "move-line", goalId: goal.id }));
     line.innerHTML = `
       <div class="goal-line-progress"></div>
       <button class="goal-line-handle goal-line-start" type="button" draggable="true" aria-label="Inizio linea"></button>
@@ -730,6 +771,7 @@ function updateGoalTitle(goalId, title) {
   if (!goal) return;
 
   goal.title = title;
+  renderRoadmap(getActiveMember());
   persistState();
 }
 
@@ -741,6 +783,7 @@ function updateGoal(goalId, patch) {
   Object.assign(goal, patch);
   clampGoal(goal);
   renderTimeline(activeMember);
+  renderRoadmap(activeMember);
   persistState();
 }
 
@@ -754,6 +797,7 @@ function updateCriterion(goalId, criterionId, patch) {
   Object.assign(criterion, normalized);
   syncGoalProgress(goal);
   renderTimeline(getActiveMember());
+  renderRoadmap(getActiveMember());
   persistState();
 }
 
@@ -821,6 +865,21 @@ function addGoalAtDrop(dropMeta) {
 
   const insertIndex = clamp(dropMeta.rowIndex, 0, activeMember.goals.length);
   activeMember.goals.splice(insertIndex, 0, goal);
+  render();
+}
+
+function addGoalFromButton() {
+  const activeMember = getActiveMember();
+  if (!activeMember) return;
+
+  const startLine = getVisibleTimelineGridLine();
+  activeMember.goals.push(
+    createGoal({
+      title: "Nuova linea",
+      start: startLine + 1,
+      criterionGridLine: startLine + 2,
+    }),
+  );
   render();
 }
 
@@ -894,24 +953,296 @@ function saveMember() {
 }
 
 function scrollToCurrentWeek(behavior = "smooth") {
-  const currentWeekIndex = getCurrentTimelineWeekIndex();
-  if (currentWeekIndex < 0) return;
+  const timelineUnits = getTimelineUnits();
+  const currentUnitIndex = getCurrentTimelineUnitIndex(timelineUnits);
+  if (currentUnitIndex < 0) return;
 
   const maxScrollLeft = Math.max(0, elements.timelineFrame.scrollWidth - elements.timelineFrame.clientWidth);
   const trackWidth = Math.max(MIN_WEEK_WIDTH, elements.timelineFrame.scrollWidth - LABEL_WIDTH);
-  const weekWidth = trackWidth / state.timelineWeeks;
+  const weekWidth = trackWidth / timelineUnits.length;
   const visibleTrackWidth = Math.max(0, elements.timelineFrame.clientWidth - LABEL_WIDTH);
-  const targetLeft = clamp(currentWeekIndex * weekWidth - (visibleTrackWidth - weekWidth) / 2, 0, maxScrollLeft);
+  const targetLeft = clamp(currentUnitIndex * weekWidth - (visibleTrackWidth - weekWidth) / 2, 0, maxScrollLeft);
 
   elements.timelineFrame.scrollTo({ left: targetLeft, behavior });
 }
 
-function toggleSidebar(side) {
-  if (side === "left") {
-    state.ui.leftCollapsed = !state.ui.leftCollapsed;
-  } else {
-    state.ui.rightCollapsed = !state.ui.rightCollapsed;
+function handleTimelineWheel(event) {
+  if (state.ui.activeView !== WORKSPACE_VIEW_TIMELINE) return;
+
+  event.preventDefault();
+
+  if (event.ctrlKey || event.metaKey) {
+    zoomTimeline(event.deltaY < 0 ? 1 : -1);
+    return;
   }
+
+  const horizontalDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+  elements.timelineFrame.scrollLeft += horizontalDelta;
+}
+
+function zoomTimeline(direction) {
+  const currentIndex = TIMELINE_ZOOM_LEVELS.indexOf(state.ui.timelineZoom);
+  const nextIndex = clamp(currentIndex + direction, 0, TIMELINE_ZOOM_LEVELS.length - 1);
+  const nextZoom = TIMELINE_ZOOM_LEVELS[nextIndex];
+  if (nextZoom === state.ui.timelineZoom) return;
+
+  const maxScrollLeft = Math.max(1, elements.timelineFrame.scrollWidth - elements.timelineFrame.clientWidth);
+  const scrollRatio = maxScrollLeft ? elements.timelineFrame.scrollLeft / maxScrollLeft : 0;
+  state.ui.timelineZoom = nextZoom;
+  render();
+
+  window.requestAnimationFrame(() => {
+    const nextMaxScrollLeft = Math.max(0, elements.timelineFrame.scrollWidth - elements.timelineFrame.clientWidth);
+    elements.timelineFrame.scrollLeft = nextMaxScrollLeft * scrollRatio;
+  });
+}
+
+function getTimelineUnitWidth() {
+  return TIMELINE_UNIT_WIDTHS[state.ui.timelineZoom] || TIMELINE_UNIT_WIDTHS[TIMELINE_ZOOM_WEEK];
+}
+
+function getGridLineFromTimelineUnitLine(unitLine) {
+  if (state.ui.timelineZoom === TIMELINE_ZOOM_DAY) {
+    const weekIndex = Math.floor(unitLine / 5);
+    const dayIndex = unitLine % 5;
+    return clamp(weekIndex + dayIndex / 5, 0, state.timelineWeeks);
+  }
+
+  if (state.ui.timelineZoom === TIMELINE_ZOOM_MONTH) {
+    const date = new Date(state.timelineYear, unitLine, 1);
+    return clamp(getGridLineFromDate(date), 0, state.timelineWeeks);
+  }
+
+  return clamp(unitLine, 0, state.timelineWeeks);
+}
+
+function getGridLineFromDate(date) {
+  const timelineStart = parseLocalISODate(state.timelineStartDate);
+  const weekStart = getWeekStart(date);
+  const diffDays = Math.round((weekStart - timelineStart) / (24 * 60 * 60 * 1000));
+  return diffDays / 7;
+}
+
+function getGoalTimelinePlacement(goal) {
+  const startRatio = (goal.start - 1) / state.timelineWeeks;
+  const endRatio = getGoalEndGridLine(goal) / state.timelineWeeks;
+
+  return {
+    left: clamp(startRatio * 100, 0, 100),
+    width: clamp((endRatio - startRatio) * 100, 0, 100),
+  };
+}
+
+function getGoalEndGridLine(goal) {
+  return clamp((Number(goal.start) || 1) - 1 + (Number(goal.duration) || 1), 1, state.timelineWeeks);
+}
+
+function getVisibleTimelineGridLine() {
+  const { timelineUnits, trackWidth } = getTimelineTrackMetrics();
+  if (!timelineUnits.length) return 0;
+  const unitWidth = trackWidth / timelineUnits.length;
+  const unitLine = clamp(Math.round(elements.timelineFrame.scrollLeft / unitWidth), 0, timelineUnits.length);
+
+  return clamp(Math.round(getGridLineFromTimelineUnitLine(unitLine)), 0, state.timelineWeeks - 1);
+}
+
+function showTimelineView(scrollCurrentWeek = false) {
+  state.ui.activeView = WORKSPACE_VIEW_TIMELINE;
+  applyWorkspaceView();
+  persistState();
+
+  if (scrollCurrentWeek) {
+    window.requestAnimationFrame(() => scrollToCurrentWeek());
+  }
+}
+
+function showRoadmapView() {
+  state.ui.activeView = WORKSPACE_VIEW_ROADMAP;
+  applyWorkspaceView();
+  persistState();
+  elements.roadmapCanvas.focus({ preventScroll: true });
+  window.requestAnimationFrame(centerRoadmapStart);
+}
+
+function applyWorkspaceView() {
+  const isRoadmap = state.ui.activeView === WORKSPACE_VIEW_ROADMAP;
+  elements.workspace.classList.toggle("is-roadmap-view", isRoadmap);
+  elements.workspace.classList.toggle("is-timeline-view", !isRoadmap);
+  elements.goCurrentWeek.classList.toggle("active", !isRoadmap);
+  elements.goRoadmap.classList.toggle("active", isRoadmap);
+  elements.goRoadmap.setAttribute("aria-pressed", String(isRoadmap));
+  elements.goCurrentWeek.setAttribute("aria-pressed", String(!isRoadmap));
+}
+
+function toggleTheme() {
+  state.ui.theme = state.ui.theme === THEME_LIGHT ? THEME_DARK : THEME_LIGHT;
+  applyTheme();
+  persistState();
+}
+
+function applyTheme() {
+  const isLight = state.ui.theme === THEME_LIGHT;
+  document.documentElement.dataset.theme = isLight ? THEME_LIGHT : THEME_DARK;
+  elements.toggleTheme.textContent = isLight ? "Tema scuro" : "Tema chiaro";
+  elements.toggleTheme.title = isLight ? "Passa al tema scuro" : "Passa al tema chiaro";
+  elements.toggleTheme.setAttribute("aria-label", elements.toggleTheme.title);
+  elements.toggleTheme.setAttribute("aria-pressed", String(isLight));
+}
+
+function centerRoadmapStart() {
+  elements.roadmapCanvas.scrollTop = 0;
+  elements.roadmapCanvas.scrollLeft = Math.max(0, (elements.roadmapCanvas.scrollWidth - elements.roadmapCanvas.clientWidth) / 2);
+}
+
+function renderRoadmap(activeMember) {
+  elements.roadmapCanvas.innerHTML = "";
+  elements.roadmapMember.textContent = activeMember
+    ? `${activeMember.name} - ${activeMember.goals.length} obiettivi`
+    : "Nessun membro";
+
+  if (!activeMember || !activeMember.goals.length) {
+    const empty = document.createElement("div");
+    empty.className = "roadmap-empty";
+    empty.textContent = "Nessun obiettivo da mostrare nella roadmap.";
+    elements.roadmapCanvas.append(empty);
+    return;
+  }
+
+  const goals = activeMember.goals;
+  const maxCriteria = Math.max(1, ...goals.map((goal) => goal.criteria.length));
+  const width = Math.max(1080, 300 + goals.length * 270, 760 + maxCriteria * 120);
+  const height = Math.max(720, 600 + maxCriteria * 28);
+  const rootX = Math.round(width / 2);
+  const rootY = height + 150;
+  const goalY = 104;
+  const branchStartY = height - 28;
+  const edgePadding = 170;
+
+  const map = document.createElement("div");
+  map.className = "roadmap-map";
+  map.style.width = `${width}px`;
+  map.style.height = `${height}px`;
+
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.classList.add("roadmap-lines");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("aria-hidden", "true");
+
+  goals.forEach((goal, goalIndex) => {
+    const endX = getRoadmapGoalX(goalIndex, goals.length, width, edgePadding);
+    const color = getRoadmapColor(goalIndex);
+    const path = getRoadmapBranchPath(rootX, rootY, endX, goalY);
+
+    appendRoadmapPath(svg, path, color, "roadmap-branch-shadow");
+    appendRoadmapPath(svg, path, color, "roadmap-branch-path");
+  });
+
+  map.append(svg);
+
+  goals.forEach((goal, goalIndex) => {
+    const endX = getRoadmapGoalX(goalIndex, goals.length, width, edgePadding);
+    const color = getRoadmapColor(goalIndex);
+    const criteria = [...goal.criteria].sort((first, second) => first.position - second.position);
+    const visibleStartRatio = getRoadmapVisibleStartRatio(rootY, branchStartY, goalY);
+
+    criteria.forEach((criterion) => {
+      const timeRatio = clamp(Number(criterion.position) / 100, 0, 1);
+      const branchRatio = visibleStartRatio + timeRatio * (1 - visibleStartRatio);
+      const point = getRoadmapBranchPoint(rootX, rootY, endX, goalY, branchRatio);
+      appendRoadmapCriterion(map, criterion, point.x, point.y, color);
+    });
+
+    appendRoadmapGoal(map, goal, goalIndex, endX, goalY, color);
+  });
+
+  elements.roadmapCanvas.append(map);
+  if (state.ui.activeView === WORKSPACE_VIEW_ROADMAP) {
+    centerRoadmapStart();
+  }
+}
+
+function getRoadmapColor(index) {
+  return ROADMAP_COLORS[index] || `hsl(${(index * 47 + 18) % 360} 88% 58%)`;
+}
+
+function getRoadmapGoalX(index, totalGoals, width, edgePadding) {
+  if (totalGoals === 1) return Math.round(width / 2);
+
+  return Math.round(edgePadding + (index / (totalGoals - 1)) * (width - edgePadding * 2));
+}
+
+function getRoadmapBranchPath(rootX, rootY, endX, endY) {
+  return `M ${rootX} ${rootY} L ${endX} ${endY}`;
+}
+
+function getRoadmapBranchPoint(rootX, rootY, endX, endY, ratio) {
+  const start = { x: rootX, y: rootY };
+  const end = { x: endX, y: endY };
+
+  return {
+    x: start.x + (end.x - start.x) * ratio,
+    y: start.y + (end.y - start.y) * ratio,
+  };
+}
+
+function getRoadmapVisibleStartRatio(rootY, branchStartY, endY) {
+  return clamp((rootY - branchStartY) / Math.max(1, rootY - endY), 0, 1);
+}
+
+function appendRoadmapPath(svg, path, color, className) {
+  const branch = document.createElementNS(SVG_NS, "path");
+  branch.setAttribute("d", path);
+  branch.setAttribute("stroke", color);
+  branch.classList.add(className);
+  svg.append(branch);
+}
+
+function appendRoadmapCriterion(map, criterion, x, y, color) {
+  const node = document.createElement("div");
+  node.className = `roadmap-criterion-node${criterion.status === "unlocked" ? " is-unlocked" : ""}`;
+  node.style.left = `${x}px`;
+  node.style.top = `${y}px`;
+  node.style.setProperty("--branch-color", color);
+
+  const orb = document.createElement("span");
+  orb.className = "roadmap-node-orb";
+
+  const icon = document.createElement("img");
+  icon.src = getCriterionIconUrl(criterion.status);
+  icon.alt = "";
+  icon.setAttribute("aria-hidden", "true");
+
+  const caption = document.createElement("span");
+  caption.className = "roadmap-criterion-caption";
+  caption.textContent = criterion.label || "Criterio di avanzamento";
+
+  orb.append(icon);
+  node.append(orb, caption);
+  map.append(node);
+}
+
+function appendRoadmapGoal(map, goal, goalIndex, x, y, color) {
+  const node = document.createElement("div");
+  node.className = "roadmap-goal-node";
+  node.style.left = `${x}px`;
+  node.style.top = `${y}px`;
+  node.style.setProperty("--branch-color", color);
+
+  const orb = document.createElement("span");
+  orb.className = "roadmap-goal-orb";
+  orb.textContent = String(goalIndex + 1).padStart(2, "0");
+
+  const title = document.createElement("span");
+  title.className = "roadmap-goal-title";
+  title.textContent = goal.title || "Obiettivo";
+
+  node.append(orb, title);
+  map.append(node);
+}
+
+function toggleSidebar(side) {
+  if (side !== "left") return;
+  state.ui.leftCollapsed = !state.ui.leftCollapsed;
 
   applySidebarState();
   persistState();
@@ -919,7 +1250,6 @@ function toggleSidebar(side) {
 
 function applySidebarState() {
   elements.appShell.classList.toggle("left-collapsed", state.ui.leftCollapsed);
-  elements.appShell.classList.toggle("right-collapsed", state.ui.rightCollapsed);
 
   elements.toggleLeftSidebar.setAttribute("aria-pressed", String(state.ui.leftCollapsed));
   elements.toggleLeftSidebar.setAttribute(
@@ -928,14 +1258,6 @@ function applySidebarState() {
   );
   elements.toggleLeftSidebar.title = state.ui.leftCollapsed ? "Mostra menu membro" : "Nascondi menu membro";
   elements.toggleLeftSidebar.querySelector("span").textContent = state.ui.leftCollapsed ? ">" : "<";
-
-  elements.toggleRightSidebar.setAttribute("aria-pressed", String(state.ui.rightCollapsed));
-  elements.toggleRightSidebar.setAttribute(
-    "aria-label",
-    state.ui.rightCollapsed ? "Mostra toolbox" : "Nascondi toolbox",
-  );
-  elements.toggleRightSidebar.title = state.ui.rightCollapsed ? "Mostra toolbox" : "Nascondi toolbox";
-  elements.toggleRightSidebar.querySelector("span").textContent = state.ui.rightCollapsed ? "<" : ">";
 }
 
 function findGoal(goalId) {
@@ -1015,7 +1337,7 @@ function focusPendingCriterionEditor() {
   const criterionInputs = editor.querySelectorAll(".criterion-label-input");
   const goal = findGoal(goalId);
   const criterionIndex = goal?.criteria.findIndex((criterion) => criterion.id === criterionId) ?? -1;
-  const input = criterionInputs[criterionIndex];
+  const input = activePopupCriterionId ? criterionInputs[0] : criterionInputs[criterionIndex];
   if (input) {
     input.focus();
     input.select();
@@ -1039,12 +1361,70 @@ function parseDragPayload(event) {
   }
 }
 
-function handleToolDragStart(event) {
-  const tool = event.target.closest("[data-tool]");
-  if (!tool) return;
+function handleTimelinePointerMove(event) {
+  const pointerMeta = getTimelinePointerMeta(event);
+  if (!isTimelineGoalRow(pointerMeta)) {
+    hideTimelineHoverLine();
+    return;
+  }
 
-  const kind = tool.dataset.tool === "line" ? "new-line" : "new-criterion";
-  startDrag(event, { kind });
+  showTimelineHoverLine(pointerMeta);
+}
+
+function handleTimelinePointerLeave() {
+  hideTimelineHoverLine();
+}
+
+function handleTimelineClick(event) {
+  if (isTimelineInteractiveTarget(event.target)) return;
+
+  const pointerMeta = getTimelinePointerMeta(event);
+  const activeMember = getActiveMember();
+  if (!isTimelineGoalRow(pointerMeta) || !activeMember) return;
+
+  const goal = activeMember.goals[pointerMeta.rowIndex];
+  ensureGoalIncludesGridLine(goal, pointerMeta.gridLinePrecise);
+  goal.criteria.push(createCriterion(getCriterionPositionFromGridLine(goal, pointerMeta.gridLinePrecise)));
+  syncGoalProgress(goal);
+  render();
+}
+
+function isTimelineInteractiveTarget(target) {
+  return Boolean(
+    target.closest("button, input, select, textarea, .criterion-circle, .goal-line-handle, .timeline-add-goal"),
+  );
+}
+
+function showTimelineHoverLine(pointerMeta) {
+  elements.timelineHoverLine.hidden = false;
+  elements.timelineHoverLine.style.left = `${pointerMeta.contentLineLeft}px`;
+  elements.timelineHoverLine.style.top = `${48 + pointerMeta.rowIndex * ROW_HEIGHT}px`;
+  elements.timelineHoverLine.style.height = `${ROW_HEIGHT}px`;
+}
+
+function hideTimelineHoverLine() {
+  elements.timelineHoverLine.hidden = true;
+}
+
+function updateTimelineOverlayPosition() {
+  if (!elements.timelineFrame || state.ui.activeView !== WORKSPACE_VIEW_TIMELINE) return;
+
+  const frameRect = elements.timelineFrame.getBoundingClientRect();
+  const buttonSize = 42;
+  const left = frameRect.left + frameRect.width / 2 - buttonSize / 2;
+  const top = Math.min(frameRect.bottom - 64, window.innerHeight - 74);
+  document.documentElement.style.setProperty("--timeline-add-left", `${Math.max(16, left)}px`);
+  document.documentElement.style.setProperty("--timeline-add-top", `${Math.max(frameRect.top + 72, top)}px`);
+}
+
+function isTimelineGoalRow(pointerMeta) {
+  const activeMember = getActiveMember();
+  return Boolean(
+    pointerMeta &&
+      activeMember &&
+      pointerMeta.rowIndex >= 0 &&
+      pointerMeta.rowIndex < activeMember.goals.length,
+  );
 }
 
 function handleGridDrop(event) {
@@ -1085,30 +1465,90 @@ function handleGridDrop(event) {
   }
 }
 
+function handleRoadmapPointerDown(event) {
+  if (event.button !== 0) return;
+
+  roadmapPanState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    scrollLeft: elements.roadmapCanvas.scrollLeft,
+    scrollTop: elements.roadmapCanvas.scrollTop,
+  };
+  elements.roadmapCanvas.classList.add("is-panning");
+  elements.roadmapCanvas.setPointerCapture(event.pointerId);
+  event.preventDefault();
+}
+
+function handleRoadmapPointerMove(event) {
+  if (!roadmapPanState || roadmapPanState.pointerId !== event.pointerId) return;
+
+  elements.roadmapCanvas.scrollLeft = roadmapPanState.scrollLeft - (event.clientX - roadmapPanState.startX);
+  elements.roadmapCanvas.scrollTop = roadmapPanState.scrollTop - (event.clientY - roadmapPanState.startY);
+}
+
+function endRoadmapPan(event) {
+  if (!roadmapPanState || roadmapPanState.pointerId !== event.pointerId) return;
+
+  if (elements.roadmapCanvas.hasPointerCapture(event.pointerId)) {
+    elements.roadmapCanvas.releasePointerCapture(event.pointerId);
+  }
+  roadmapPanState = null;
+  elements.roadmapCanvas.classList.remove("is-panning");
+}
+
 function getDropMeta(event) {
+  return getTimelinePointerMeta(event);
+}
+
+function getTimelinePointerMeta(event) {
   const activeMember = getActiveMember();
   if (!activeMember) return null;
 
   const frameRect = elements.timelineFrame.getBoundingClientRect();
   const planRect = elements.planGrid.getBoundingClientRect();
-  const contentWidth = Math.max(elements.timelineFrame.scrollWidth, elements.timelineFrame.clientWidth);
-  const trackWidth = Math.max(MIN_WEEK_WIDTH, contentWidth - LABEL_WIDTH);
+  const { timelineUnits, trackWidth } = getTimelineTrackMetrics();
+  if (!timelineUnits.length) return null;
   const contentX = event.clientX - frameRect.left + elements.timelineFrame.scrollLeft;
   const trackX = clamp(contentX - LABEL_WIDTH, 0, trackWidth);
-  const gridLine = clamp(Math.round((trackX / trackWidth) * state.timelineWeeks), 0, state.timelineWeeks);
+  const unitWidth = trackWidth / timelineUnits.length;
+  const unitLine = clamp(Math.round(trackX / unitWidth), 0, timelineUnits.length);
+  const gridLinePrecise = getGridLineFromTimelineUnitLine(unitLine);
+  const gridLine = clamp(Math.round(gridLinePrecise), 0, state.timelineWeeks);
+  const contentLineLeft = LABEL_WIDTH + unitLine * unitWidth;
+  const screenLineLeft = contentLineLeft - elements.timelineFrame.scrollLeft;
   const rowY = event.clientY - planRect.top;
-  const rowIndex = clamp(Math.floor(rowY / ROW_HEIGHT), 0, activeMember.goals.length);
+  const rowIndex = Math.floor(rowY / ROW_HEIGHT);
+
+  if (screenLineLeft < LABEL_WIDTH || screenLineLeft > elements.timelineFrame.clientWidth) return null;
 
   return {
     gridLine,
+    gridLinePrecise,
     rowIndex,
-    trackPercent: (gridLine / state.timelineWeeks) * 100,
+    contentLineLeft,
+    screenLineLeft,
+    trackPercent: (unitLine / timelineUnits.length) * 100,
   };
+}
+
+function getTimelineTrackMetrics() {
+  const timelineUnits = getTimelineUnits();
+  const contentWidth = Math.max(
+    elements.timeAxis.scrollWidth,
+    elements.planGrid.scrollWidth,
+    elements.timelineFrame.clientWidth,
+  );
+  const trackWidth = Math.max(MIN_WEEK_WIDTH, contentWidth - LABEL_WIDTH);
+
+  return { timelineUnits, trackWidth };
 }
 
 function addCriterionAtDrop(dropMeta) {
   const activeMember = getActiveMember();
   if (!activeMember) return;
+
+  if (dropMeta.rowIndex < 0) return;
 
   if (!activeMember.goals.length || dropMeta.rowIndex >= activeMember.goals.length) {
     addGoalAtDrop(dropMeta);
@@ -1116,7 +1556,8 @@ function addCriterionAtDrop(dropMeta) {
   }
 
   const goal = activeMember.goals[dropMeta.rowIndex];
-  goal.criteria.push(createCriterion(getCriterionPositionFromGridLine(goal, dropMeta.gridLine)));
+  ensureGoalIncludesGridLine(goal, dropMeta.gridLinePrecise);
+  goal.criteria.push(createCriterion(getCriterionPositionFromGridLine(goal, dropMeta.gridLinePrecise)));
   syncGoalProgress(goal);
   render();
 }
@@ -1174,11 +1615,34 @@ function moveCriterion(payload, dropMeta) {
   const targetGoal = activeMember.goals[clamp(dropMeta.rowIndex, 0, activeMember.goals.length - 1)] ?? sourceGoal;
   const [criterion] = sourceGoal.criteria.splice(criterionIndex, 1);
 
-  criterion.position = getCriterionPositionFromGridLine(targetGoal, dropMeta.gridLine);
-  targetGoal.criteria.push(criterion);
+  if (targetGoal === sourceGoal) {
+    targetGoal.criteria.push(criterion);
+  }
+
+  ensureGoalIncludesGridLine(targetGoal, dropMeta.gridLinePrecise);
+  criterion.position = getCriterionPositionFromGridLine(targetGoal, dropMeta.gridLinePrecise);
+  if (targetGoal !== sourceGoal) {
+    targetGoal.criteria.push(criterion);
+  }
   syncGoalProgress(sourceGoal);
   syncGoalProgress(targetGoal);
   render();
+}
+
+function ensureGoalIncludesGridLine(goal, gridLine) {
+  const targetLine = clamp(Number(gridLine) || 0, 0, state.timelineWeeks);
+  const currentStartLine = goal.start - 1;
+  const currentEndLine = currentStartLine + goal.duration;
+
+  if (targetLine >= currentStartLine && targetLine <= currentEndLine) return;
+
+  const preservedCriterionLines = getCriterionGridLineMap(goal);
+  const nextStartLine = clamp(Math.floor(Math.min(currentStartLine, targetLine)), 0, state.timelineWeeks - 1);
+  const nextEndLine = clamp(Math.ceil(Math.max(currentEndLine, targetLine)), nextStartLine + 1, state.timelineWeeks);
+
+  goal.start = nextStartLine + 1;
+  goal.duration = nextEndLine - nextStartLine;
+  restoreCriterionGridLines(goal, preservedCriterionLines);
 }
 
 function getCriterionGridLineMap(goal) {
@@ -1201,14 +1665,14 @@ function restoreCriterionGridLines(goal, gridLineMap) {
 function getCriterionGridLine(goal, criterion) {
   const startLine = goal.start - 1;
   const endLine = startLine + goal.duration;
-  return clamp(Math.round(startLine + (criterion.position / 100) * goal.duration), startLine, endLine);
+  return clamp(startLine + (criterion.position / 100) * goal.duration, startLine, endLine);
 }
 
 function getCriterionPositionFromGridLine(goal, gridLine) {
   const startLine = goal.start - 1;
   const endLine = startLine + goal.duration;
   const snappedLine = clamp(gridLine, startLine, endLine);
-  return Math.round(((snappedLine - startLine) / goal.duration) * 100);
+  return Number((((snappedLine - startLine) / goal.duration) * 100).toFixed(3));
 }
 
 function getGoalRangeLabel(goal) {
@@ -1219,11 +1683,77 @@ function getGoalRangeLabel(goal) {
   return `S${start.week} ${start.year}-S${end.week} ${end.year}`;
 }
 
+function getTimelineUnits() {
+  if (state.ui.timelineZoom === TIMELINE_ZOOM_MONTH) return getTimelineMonthUnits();
+  if (state.ui.timelineZoom === TIMELINE_ZOOM_DAY) return getTimelineWorkdayUnits();
+
+  return Array.from({ length: state.timelineWeeks }, (_, index) => {
+    const week = getTimelineWeekInfo(index);
+    return {
+      label: `S${week.week}`,
+      detail: week.dayRange,
+      startISO: week.startISO,
+      endISO: week.endISO,
+      title: `Settimana ${week.week}: giorni lavorativi ${week.dayRange}`,
+    };
+  });
+}
+
+function getTimelineWorkdayUnits() {
+  const labels = ["Lun", "Mar", "Mer", "Gio", "Ven"];
+  const units = [];
+
+  for (let weekIndex = 0; weekIndex < state.timelineWeeks; weekIndex += 1) {
+    const weekStart = parseLocalISODate(state.timelineStartDate);
+    weekStart.setDate(weekStart.getDate() + weekIndex * 7);
+
+    for (let dayIndex = 0; dayIndex < 5; dayIndex += 1) {
+      const date = new Date(weekStart);
+      date.setDate(date.getDate() + dayIndex);
+      const iso = toLocalISODate(date);
+      const day = String(date.getDate()).padStart(2, "0");
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      units.push({
+        label: day,
+        detail: labels[dayIndex],
+        startISO: iso,
+        endISO: iso,
+        title: `${labels[dayIndex]} ${day}/${month}/${date.getFullYear()}`,
+      });
+    }
+  }
+
+  return units;
+}
+
+function getTimelineMonthUnits() {
+  return Array.from({ length: 12 }, (_, monthIndex) => {
+    const startDate = new Date(state.timelineYear, monthIndex, 1);
+    const endDate = new Date(state.timelineYear, monthIndex + 1, 0);
+    return {
+      label: getMonthNameShort(monthIndex),
+      detail: String(state.timelineYear),
+      startISO: toLocalISODate(startDate),
+      endISO: toLocalISODate(endDate),
+      title: `${getMonthNameShort(monthIndex)} ${state.timelineYear}`,
+    };
+  });
+}
+
+function getCurrentTimelineUnitIndex(units) {
+  const today = toLocalISODate(new Date());
+  return units.findIndex((unit) => unit.startISO <= today && today <= unit.endISO);
+}
+
+function getMonthNameShort(monthIndex) {
+  return ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"][monthIndex] || "";
+}
+
 function getTimelineWeekInfo(offset) {
   const startDate = parseLocalISODate(state.timelineStartDate);
   startDate.setDate(startDate.getDate() + offset * 7);
   const endDate = new Date(startDate);
-  endDate.setDate(endDate.getDate() + 6);
+  endDate.setDate(endDate.getDate() + 4);
 
   return {
     ...getISOWeekInfo(startDate),
@@ -1324,7 +1854,6 @@ elements.confirmDialog.addEventListener("click", (event) => {
   if (event.target === elements.confirmDialog) closeConfirmDialog();
 });
 elements.toggleLeftSidebar.addEventListener("click", () => toggleSidebar("left"));
-elements.toggleRightSidebar.addEventListener("click", () => toggleSidebar("right"));
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !elements.goalPopup.hidden) closeGoalPopup();
   if (event.key === "Escape" && !elements.confirmDialog.hidden) closeConfirmDialog();
@@ -1333,6 +1862,8 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") persistState();
 });
 window.addEventListener("resize", positionGoalPopup);
+window.addEventListener("resize", updateTimelineOverlayPosition);
+window.addEventListener("scroll", updateTimelineOverlayPosition, { passive: true });
 window.addEventListener("beforeunload", persistState);
 elements.memberName.addEventListener("keydown", (event) => {
   if (event.key === "Enter") saveMember();
@@ -1340,9 +1871,21 @@ elements.memberName.addEventListener("keydown", (event) => {
 elements.memberRole.addEventListener("keydown", (event) => {
   if (event.key === "Enter") saveMember();
 });
-elements.goCurrentWeek.addEventListener("click", () => scrollToCurrentWeek());
+elements.goCurrentWeek.addEventListener("click", () => showTimelineView(true));
+elements.goRoadmap.addEventListener("click", showRoadmapView);
+elements.zoomTimelineOut.addEventListener("click", () => zoomTimeline(-1));
+elements.zoomTimelineIn.addEventListener("click", () => zoomTimeline(1));
+elements.toggleTheme.addEventListener("click", toggleTheme);
+elements.addGoalButton.addEventListener("click", addGoalFromButton);
 
-elements.toolList.addEventListener("dragstart", handleToolDragStart);
+elements.timelineFrame.addEventListener("wheel", handleTimelineWheel, { passive: false });
+elements.timelineFrame.addEventListener("pointermove", handleTimelinePointerMove);
+elements.timelineFrame.addEventListener("pointerleave", handleTimelinePointerLeave);
+elements.timelineFrame.addEventListener("click", handleTimelineClick);
+elements.timelineFrame.addEventListener("scroll", () => {
+  hideTimelineHoverLine();
+  updateTimelineOverlayPosition();
+});
 elements.timelineFrame.addEventListener("dragover", (event) => {
   event.preventDefault();
   elements.timelineFrame.classList.add("is-dropping");
@@ -1353,6 +1896,10 @@ elements.timelineFrame.addEventListener("dragleave", (event) => {
   }
 });
 elements.timelineFrame.addEventListener("drop", handleGridDrop);
+elements.roadmapCanvas.addEventListener("pointerdown", handleRoadmapPointerDown);
+elements.roadmapCanvas.addEventListener("pointermove", handleRoadmapPointerMove);
+elements.roadmapCanvas.addEventListener("pointerup", endRoadmapPan);
+elements.roadmapCanvas.addEventListener("pointercancel", endRoadmapPan);
 
 render();
 initializeCloudSync();
