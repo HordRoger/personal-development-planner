@@ -28,23 +28,29 @@
       </button>
 
       <aside class="sidebar sidebar-left" aria-label="Membro del team">
-        <div class="brand-block">
-          <span class="brand-mark" aria-hidden="true"></span>
-          <div>
-            <p class="eyebrow">Team growth</p>
-            <h1>Piano personale</h1>
-          </div>
-        </div>
-
-        <section class="panel">
+        <section class="panel member-panel">
           <div class="panel-header">
-            <h2>Membro</h2>
+            <h2>Membro corrente</h2>
             <span id="memberCount" class="counter">0</span>
+          </div>
+
+          <div class="member-profile" aria-live="polite">
+            <div class="avatar" id="memberAvatar">--</div>
+            <div>
+              <p id="activeMemberName" class="member-name">Nessun membro</p>
+              <p id="activeMemberRole" class="member-role">Profilo non selezionato</p>
+            </div>
           </div>
 
           <label class="field-label" for="memberSelect">Seleziona</label>
           <select id="memberSelect" class="field"></select>
+        </section>
 
+        <section class="panel add-member-panel">
+          <div class="panel-header">
+            <h2>Membri</h2>
+          </div>
+          <div id="memberList" class="member-list" aria-label="Membri esistenti"></div>
           <div class="split-fields">
             <label>
               <span class="field-label">Nome</span>
@@ -62,34 +68,19 @@
           </button>
         </section>
 
-        <section class="member-card" aria-live="polite">
-          <div class="avatar" id="memberAvatar">--</div>
-          <div>
-            <p id="activeMemberName" class="member-name">Nessun membro</p>
-            <p id="activeMemberRole" class="member-role">Profilo non selezionato</p>
-          </div>
-        </section>
-
-        <section class="panel compact">
-          <div class="panel-header">
-            <h2>Obiettivi</h2>
-            <button id="addGoal" class="icon-button" type="button" aria-label="Aggiungi obiettivo" title="Aggiungi obiettivo">
-              +
-            </button>
-          </div>
-          <div id="goalList" class="goal-list"></div>
-        </section>
       </aside>
 
       <section class="workspace" aria-label="Visualizzazione del piano">
         <header class="workspace-header">
           <div>
             <p class="eyebrow">Roadmap individuale</p>
-            <h2 id="timelineTitle">Piano di miglioramento</h2>
+            <div class="workspace-title-row">
+              <button id="goCurrentWeek" class="scale-button current-week-button" type="button">Week corrente</button>
+            </div>
           </div>
           <div class="timeline-controls" aria-label="Navigazione temporale">
             <span id="timelineYear" class="timeline-year">Anno</span>
-            <button id="goCurrentWeek" class="scale-button current-week-button" type="button">Week corrente</button>
+            <span id="saveStatus" class="save-status" aria-live="polite">Salvataggio locale</span>
           </div>
         </header>
 
@@ -123,33 +114,37 @@
             </span>
           </button>
         </div>
-
-        <section class="panel tool-panel">
-          <h2>Focus</h2>
-          <div class="metric">
-            <span>Obiettivi attivi</span>
-            <strong id="activeGoalsMetric">0</strong>
-          </div>
-          <div class="metric">
-            <span>Avanzamento medio</span>
-            <strong id="progressMetric">0%</strong>
-          </div>
-        </section>
       </aside>
     </main>
 
+    <div id="goalPopup" class="goal-popup" hidden>
+      <section class="panel compact goal-popup-panel" role="dialog" aria-modal="true" aria-labelledby="goalPopupTitle">
+        <div class="panel-header">
+          <h2 id="goalPopupTitle">Criterio selezionato</h2>
+          <div class="popup-actions">
+            <button id="closeGoalPopup" class="icon-button" type="button" aria-label="Chiudi obiettivi" title="Chiudi obiettivi">
+              x
+            </button>
+          </div>
+        </div>
+        <div id="goalList" class="goal-list"></div>
+      </section>
+    </div>
+
+    <div id="confirmDialog" class="confirm-dialog" hidden>
+      <section class="panel confirm-panel" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <h2 id="confirmTitle">Conferma eliminazione</h2>
+        <p id="confirmMessage">Vuoi eliminare questo elemento?</p>
+        <div class="confirm-actions">
+          <button id="cancelConfirm" class="secondary-action" type="button">Annulla</button>
+          <button id="confirmDelete" class="danger-action" type="button">Elimina</button>
+        </div>
+      </section>
+    </div>
+
     <template id="goalTemplate">
       <article class="goal-editor">
-        <input class="goal-title-input" type="text" aria-label="Titolo obiettivo" />
-        <div class="goal-editor-row">
-          <span class="goal-range">Settimane</span>
-          <button class="remove-goal" type="button" aria-label="Rimuovi obiettivo" title="Rimuovi obiettivo">x</button>
-        </div>
         <div class="criteria-block">
-          <div class="criteria-header">
-            <span>Criteri</span>
-            <button class="add-criterion" type="button" aria-label="Aggiungi criterio" title="Aggiungi criterio">+</button>
-          </div>
           <div class="criteria-list"></div>
         </div>
       </article>
@@ -166,6 +161,7 @@
       </div>
     </template>
 
+    <script src="supabase-config.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

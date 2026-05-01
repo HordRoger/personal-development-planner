@@ -1,4 +1,6 @@
 const STORAGE_KEY = "team-improvement-plan";
+const STORAGE_VERSION = 2;
+const CLOUD_SAVE_DEBOUNCE_MS = 900;
 const ROW_HEIGHT = 92;
 const LABEL_WIDTH = 170;
 const MIN_WEEK_WIDTH = 72;
@@ -77,6 +79,7 @@ const defaultState = {
 };
 
 const state = loadState();
+const initialLocalSavedAt = state.savedAt;
 const elements = {
   appShell: document.querySelector("#appShell"),
   toggleLeftSidebar: document.querySelector("#toggleLeftSidebar"),
@@ -85,33 +88,57 @@ const elements = {
   memberName: document.querySelector("#memberName"),
   memberRole: document.querySelector("#memberRole"),
   saveMember: document.querySelector("#saveMember"),
+  memberList: document.querySelector("#memberList"),
   memberCount: document.querySelector("#memberCount"),
   activeMemberName: document.querySelector("#activeMemberName"),
   activeMemberRole: document.querySelector("#activeMemberRole"),
   memberAvatar: document.querySelector("#memberAvatar"),
-  addGoal: document.querySelector("#addGoal"),
+  goalPopup: document.querySelector("#goalPopup"),
+  goalPopupPanel: document.querySelector(".goal-popup-panel"),
+  closeGoalPopup: document.querySelector("#closeGoalPopup"),
   goalList: document.querySelector("#goalList"),
+  confirmDialog: document.querySelector("#confirmDialog"),
+  confirmMessage: document.querySelector("#confirmMessage"),
+  cancelConfirm: document.querySelector("#cancelConfirm"),
+  confirmDelete: document.querySelector("#confirmDelete"),
   goalTemplate: document.querySelector("#goalTemplate"),
   criterionTemplate: document.querySelector("#criterionTemplate"),
-  timelineTitle: document.querySelector("#timelineTitle"),
   timelineFrame: document.querySelector("#timelineFrame"),
   timeAxis: document.querySelector("#timeAxis"),
   planGrid: document.querySelector("#planGrid"),
   toolList: document.querySelector("#toolList"),
-  activeGoalsMetric: document.querySelector("#activeGoalsMetric"),
-  progressMetric: document.querySelector("#progressMetric"),
   timelineYear: document.querySelector("#timelineYear"),
+  saveStatus: document.querySelector("#saveStatus"),
   goCurrentWeek: document.querySelector("#goCurrentWeek"),
 };
 
+let activePopupGoalId = null;
+let activePopupCriterionId = null;
+let goalPopupAnchorRect = null;
+let pendingCriterionFocus = null;
+let pendingDeleteMemberId = null;
+const cloudSync = {
+  ready: false,
+  saveTimer: null,
+  saving: false,
+};
+
 function loadState() {
-  const saved = localStorage.getItem(STORAGE_KEY);
+  const saved = readPersistedState();
   if (!saved) return normalizeState(cloneDefaultState());
 
   try {
     return normalizeState(JSON.parse(saved));
   } catch {
     return normalizeState(cloneDefaultState());
+  }
+}
+
+function readPersistedState() {
+  try {
+    return localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
   }
 }
 
@@ -131,10 +158,12 @@ function normalizeState(source) {
       ? null
       : { sourceStartDate: sourceTimelineStartDate, targetStartDate: timelineStartDate };
   const normalized = {
+    schemaVersion: STORAGE_VERSION,
     activeMemberId: source?.activeMemberId || fallback.activeMemberId,
     timelineYear,
     timelineWeeks,
     timelineStartDate,
+    savedAt: isValidDateValue(source?.savedAt) ? source.savedAt : null,
     ui: {
       leftCollapsed: Boolean(source?.ui?.leftCollapsed),
       rightCollapsed: Boolean(source?.ui?.rightCollapsed),
@@ -219,7 +248,180 @@ function normalizeCriterion(criterion = {}) {
 }
 
 function persistState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  state.schemaVersion = STORAGE_VERSION;
+  state.savedAt = new Date().toISOString();
+  const persistedState = createPersistableState();
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
+  } catch {
+    updateSaveStatus(null, true, "Salvataggio locale non riuscito");
+    return;
+  }
+
+  if (getSupabaseConfig()) {
+    if (cloudSync.ready) {
+      scheduleCloudSave();
+    } else {
+      updateSaveStatus(state.savedAt, false, "Cloud in attesa");
+    }
+    return;
+  }
+
+  updateSaveStatus(state.savedAt);
+}
+
+function createPersistableState() {
+  return JSON.parse(JSON.stringify(state));
+}
+
+function updateSaveStatus(savedAt = state.savedAt, hasError = false, message = null) {
+  if (!elements.saveStatus) return;
+
+  if (hasError) {
+    elements.saveStatus.textContent = message || "Salvataggio non riuscito";
+    elements.saveStatus.classList.add("has-error");
+    return;
+  }
+
+  elements.saveStatus.classList.remove("has-error");
+  if (message) {
+    elements.saveStatus.textContent = message;
+    return;
+  }
+
+  if (!savedAt) {
+    elements.saveStatus.textContent = "Salvataggio locale";
+    return;
+  }
+
+  elements.saveStatus.textContent = `Salvato ${formatSavedTime(savedAt)}`;
+}
+
+function formatSavedTime(savedAt) {
+  const date = new Date(savedAt);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+}
+
+function isValidDateValue(value) {
+  if (!value) return false;
+  return !Number.isNaN(new Date(value).getTime());
+}
+
+function getSupabaseConfig() {
+  const config = window.PLANNER_SUPABASE || {};
+  const url = String(config.url || "").trim().replace(/\/+$/, "");
+  const anonKey = String(config.anonKey || "").trim();
+  const workspaceId = String(config.workspaceId || "").trim();
+  const table = String(config.table || "planner_state").trim() || "planner_state";
+
+  if (!url || !anonKey || !workspaceId) return null;
+  return { url, anonKey, workspaceId, table };
+}
+
+function scheduleCloudSave() {
+  clearTimeout(cloudSync.saveTimer);
+  updateSaveStatus(state.savedAt, false, "Salvataggio cloud...");
+  cloudSync.saveTimer = window.setTimeout(saveStateToCloud, CLOUD_SAVE_DEBOUNCE_MS);
+}
+
+async function initializeCloudSync() {
+  const config = getSupabaseConfig();
+  if (!config) {
+    updateSaveStatus(state.savedAt);
+    return;
+  }
+
+  updateSaveStatus(null, false, "Connessione Supabase...");
+
+  try {
+    const cloudState = await loadStateFromCloud(config);
+    cloudSync.ready = true;
+
+    if (cloudState && !isNewerDateValue(initialLocalSavedAt, cloudState.savedAt)) {
+      replaceState(normalizeState(cloudState));
+    }
+
+    render();
+  } catch (error) {
+    console.warn("Supabase sync unavailable", error);
+    cloudSync.ready = false;
+    updateSaveStatus(null, true, "Cloud non raggiungibile");
+  }
+}
+
+async function loadStateFromCloud(config) {
+  const response = await fetch(
+    `${getSupabaseTableUrl(config)}?workspace_id=eq.${encodeURIComponent(config.workspaceId)}&select=data,updated_at`,
+    {
+      headers: getSupabaseHeaders(config),
+    },
+  );
+
+  if (!response.ok) throw new Error(`Supabase load failed: ${response.status}`);
+
+  const rows = await response.json();
+  const row = Array.isArray(rows) ? rows[0] : null;
+  if (!row?.data) return null;
+
+  return {
+    ...row.data,
+    savedAt: row.data.savedAt || row.updated_at || null,
+  };
+}
+
+async function saveStateToCloud() {
+  const config = getSupabaseConfig();
+  if (!config || cloudSync.saving) return;
+
+  cloudSync.saving = true;
+
+  try {
+    const response = await fetch(`${getSupabaseTableUrl(config)}?on_conflict=workspace_id`, {
+      method: "POST",
+      headers: getSupabaseHeaders(config, {
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      }),
+      body: JSON.stringify({
+        workspace_id: config.workspaceId,
+        data: createPersistableState(),
+        updated_at: new Date().toISOString(),
+      }),
+    });
+
+    if (!response.ok) throw new Error(`Supabase save failed: ${response.status}`);
+    updateSaveStatus(state.savedAt, false, `Cloud salvato ${formatSavedTime(state.savedAt)}`);
+  } catch (error) {
+    console.warn("Supabase save unavailable", error);
+    updateSaveStatus(null, true, "Cloud non salvato");
+  } finally {
+    cloudSync.saving = false;
+  }
+}
+
+function getSupabaseTableUrl(config) {
+  return `${config.url}/rest/v1/${encodeURIComponent(config.table)}`;
+}
+
+function getSupabaseHeaders(config, extraHeaders = {}) {
+  return {
+    apikey: config.anonKey,
+    Authorization: `Bearer ${config.anonKey}`,
+    ...extraHeaders,
+  };
+}
+
+function replaceState(nextState) {
+  Object.keys(state).forEach((key) => delete state[key]);
+  Object.assign(state, nextState);
+}
+
+function isNewerDateValue(candidate, reference) {
+  if (!isValidDateValue(candidate)) return false;
+  if (!isValidDateValue(reference)) return true;
+  return new Date(candidate).getTime() > new Date(reference).getTime();
 }
 
 function getActiveMember() {
@@ -291,10 +493,10 @@ function render() {
   elements.goCurrentWeek.disabled = currentWeekIndex < 0;
 
   renderMemberSelect(activeMember);
+  renderMemberList(activeMember);
   renderMemberSummary(activeMember);
   renderGoalEditors(activeMember);
   renderTimeline(activeMember);
-  renderMetrics(activeMember);
   applySidebarState();
   persistState();
 }
@@ -314,48 +516,91 @@ function renderMemberSelect(activeMember) {
   elements.memberSelect.disabled = state.members.length === 0;
 }
 
+function renderMemberList(activeMember) {
+  elements.memberList.innerHTML = "";
+
+  if (!state.members.length) {
+    const empty = document.createElement("p");
+    empty.className = "member-list-empty";
+    empty.textContent = "Nessun membro salvato";
+    elements.memberList.append(empty);
+    return;
+  }
+
+  state.members.forEach((member) => {
+    const item = document.createElement("div");
+    item.className = `member-list-item${member.id === activeMember?.id ? " is-active" : ""}`;
+
+    const selectButton = document.createElement("button");
+    selectButton.className = "member-list-select";
+    selectButton.type = "button";
+    selectButton.innerHTML = `
+      <span class="member-list-avatar" aria-hidden="true">${escapeHtml(getInitials(member.name))}</span>
+      <span>
+        <strong>${escapeHtml(member.name)}</strong>
+        <small>${escapeHtml(member.role || "Ruolo non indicato")}</small>
+      </span>
+    `;
+    selectButton.addEventListener("click", () => selectMember(member.id));
+
+    const removeButton = document.createElement("button");
+    removeButton.className = "remove-member";
+    removeButton.type = "button";
+    removeButton.title = `Cancella ${member.name}`;
+    removeButton.setAttribute("aria-label", `Cancella ${member.name}`);
+    removeButton.textContent = "x";
+    removeButton.addEventListener("click", () => requestRemoveMember(member.id));
+
+    item.append(selectButton, removeButton);
+    elements.memberList.append(item);
+  });
+}
+
 function renderMemberSummary(activeMember) {
   if (!activeMember) {
     elements.activeMemberName.textContent = "Nessun membro";
     elements.activeMemberRole.textContent = "Profilo non selezionato";
     elements.memberAvatar.textContent = "--";
-    elements.timelineTitle.textContent = "Piano di miglioramento";
     return;
   }
 
   elements.activeMemberName.textContent = activeMember.name;
   elements.activeMemberRole.textContent = activeMember.role || "Ruolo non indicato";
   elements.memberAvatar.textContent = getInitials(activeMember.name);
-  elements.timelineTitle.textContent = `Piano di ${activeMember.name}`;
 }
 
 function renderGoalEditors(activeMember) {
   elements.goalList.innerHTML = "";
-  elements.addGoal.disabled = !activeMember;
 
   if (!activeMember) return;
 
-  activeMember.goals.forEach((goal) => {
+  const goalsToRender =
+    !elements.goalPopup.hidden && activePopupGoalId
+      ? activeMember.goals.filter((goal) => goal.id === activePopupGoalId)
+      : [];
+
+  if (!elements.goalPopup.hidden && activePopupGoalId && goalsToRender.length === 0) {
+    closeGoalPopup();
+    return;
+  }
+
+  goalsToRender.forEach((goal) => {
     const item = elements.goalTemplate.content.firstElementChild.cloneNode(true);
-    const titleInput = item.querySelector(".goal-title-input");
-    const range = item.querySelector(".goal-range");
-    const removeButton = item.querySelector(".remove-goal");
-    const addCriterionButton = item.querySelector(".add-criterion");
+    item.dataset.goalId = goal.id;
     const criteriaList = item.querySelector(".criteria-list");
+    const criteriaToRender =
+      activePopupCriterionId && goal.criteria.some((criterion) => criterion.id === activePopupCriterionId)
+        ? goal.criteria.filter((criterion) => criterion.id === activePopupCriterionId)
+        : goal.criteria.slice(0, 1);
 
-    titleInput.value = goal.title;
-    range.textContent = getGoalRangeLabel(goal);
-
-    titleInput.addEventListener("input", (event) => updateGoal(goal.id, { title: event.target.value }));
-    removeButton.addEventListener("click", () => removeGoal(goal.id));
-    addCriterionButton.addEventListener("click", () => addCriterion(goal.id));
-
-    goal.criteria.forEach((criterion) => {
+    criteriaToRender.forEach((criterion) => {
       criteriaList.append(createCriterionEditor(goal.id, criterion));
     });
 
     elements.goalList.append(item);
   });
+
+  focusPendingCriterionEditor();
 }
 
 function createCriterionEditor(goalId, criterion) {
@@ -411,7 +656,15 @@ function renderTimeline(activeMember) {
 
     const label = document.createElement("div");
     label.className = "goal-label";
-    label.innerHTML = `<strong>${escapeHtml(goal.title || "Obiettivo")}</strong>`;
+    const labelInput = document.createElement("input");
+    labelInput.className = "goal-label-input";
+    labelInput.type = "text";
+    labelInput.value = goal.title || "Obiettivo";
+    labelInput.setAttribute("aria-label", "Titolo obiettivo");
+    labelInput.addEventListener("click", (event) => event.stopPropagation());
+    labelInput.addEventListener("dragstart", (event) => event.preventDefault());
+    labelInput.addEventListener("input", (event) => updateGoalTitle(goal.id, event.target.value));
+    label.append(labelInput);
 
     const track = document.createElement("div");
     track.className = "goal-track";
@@ -460,7 +713,10 @@ function createCriterionMarker(goalId, criterion) {
     event.stopPropagation();
     startDrag(event, { kind: "move-criterion", goalId, criterionId: criterion.id });
   });
-  marker.addEventListener("click", () => focusCriterionEditor(goalId, criterion.id));
+  marker.addEventListener("click", (event) => {
+    event.stopPropagation();
+    focusCriterionEditor(goalId, criterion.id, marker);
+  });
 
   return marker;
 }
@@ -469,14 +725,12 @@ function getCriterionIconUrl(status) {
   return status === "unlocked" ? UNLOCK_ICON_URL : LOCK_ICON_URL;
 }
 
-function renderMetrics(activeMember) {
-  const goals = activeMember?.goals ?? [];
-  const average = goals.length
-    ? Math.round(goals.reduce((total, goal) => total + Number(goal.progress || 0), 0) / goals.length)
-    : 0;
+function updateGoalTitle(goalId, title) {
+  const goal = findGoal(goalId);
+  if (!goal) return;
 
-  elements.activeGoalsMetric.textContent = goals.length;
-  elements.progressMetric.textContent = `${average}%`;
+  goal.title = title;
+  persistState();
 }
 
 function updateGoal(goalId, patch) {
@@ -487,7 +741,6 @@ function updateGoal(goalId, patch) {
   Object.assign(goal, patch);
   clampGoal(goal);
   renderTimeline(activeMember);
-  renderMetrics(activeMember);
   persistState();
 }
 
@@ -501,7 +754,6 @@ function updateCriterion(goalId, criterionId, patch) {
   Object.assign(criterion, normalized);
   syncGoalProgress(goal);
   renderTimeline(getActiveMember());
-  renderMetrics(getActiveMember());
   persistState();
 }
 
@@ -510,14 +762,50 @@ function removeGoal(goalId) {
   if (!activeMember) return;
 
   activeMember.goals = activeMember.goals.filter((goal) => goal.id !== goalId);
+  if (activePopupGoalId === goalId || !activeMember.goals.length) closeGoalPopup();
   render();
 }
 
-function addGoal() {
-  const activeMember = getActiveMember();
-  if (!activeMember) return;
+function selectMember(memberId) {
+  if (!state.members.some((member) => member.id === memberId)) return;
+  state.activeMemberId = memberId;
+  closeGoalPopup();
+  render();
+}
 
-  activeMember.goals.push(createGoal({ title: "Nuova linea", start: 1 }));
+function requestRemoveMember(memberId) {
+  const member = state.members.find((item) => item.id === memberId);
+  if (!member) return;
+
+  pendingDeleteMemberId = memberId;
+  elements.confirmMessage.textContent = `Eliminare ${member.name} e tutti i suoi obiettivi?`;
+  elements.confirmDialog.hidden = false;
+  elements.cancelConfirm.focus();
+}
+
+function closeConfirmDialog() {
+  elements.confirmDialog.hidden = true;
+  pendingDeleteMemberId = null;
+}
+
+function confirmRemoveMember() {
+  if (!pendingDeleteMemberId) return;
+  const memberId = pendingDeleteMemberId;
+  pendingDeleteMemberId = null;
+  elements.confirmDialog.hidden = true;
+  removeMember(memberId);
+}
+
+function removeMember(memberId) {
+  const memberIndex = state.members.findIndex((member) => member.id === memberId);
+  if (memberIndex < 0) return;
+
+  state.members.splice(memberIndex, 1);
+  if (state.activeMemberId === memberId) {
+    state.activeMemberId = state.members[Math.max(0, memberIndex - 1)]?.id || state.members[0]?.id || "";
+    closeGoalPopup();
+  }
+
   render();
 }
 
@@ -571,6 +859,7 @@ function removeCriterion(goalId, criterionId) {
   if (!goal) return;
 
   goal.criteria = goal.criteria.filter((criterion) => criterion.id !== criterionId);
+  if (activePopupCriterionId === criterionId) closeGoalPopup();
   syncGoalProgress(goal);
   render();
 }
@@ -659,17 +948,80 @@ function findGoalIndex(goalId) {
   return activeMember.goals.findIndex((goal) => goal.id === goalId);
 }
 
-function focusCriterionEditor(goalId, criterionId) {
-  const goalEditorIndex = findGoalIndex(goalId);
+function openGoalPopup(goalId = null, criterionId = null, anchorElement = null) {
+  activePopupGoalId = goalId;
+  activePopupCriterionId = criterionId;
+  goalPopupAnchorRect = anchorElement ? getElementRect(anchorElement) : goalPopupAnchorRect;
+  elements.goalPopup.hidden = false;
+  if (goalId && criterionId) {
+    pendingCriterionFocus = { goalId, criterionId };
+  }
+  positionGoalPopup();
+}
+
+function closeGoalPopup() {
+  elements.goalPopup.hidden = true;
+  activePopupGoalId = null;
+  activePopupCriterionId = null;
+  goalPopupAnchorRect = null;
+  pendingCriterionFocus = null;
+}
+
+function focusCriterionEditor(goalId, criterionId, anchorElement = null) {
+  openGoalPopup(goalId, criterionId, anchorElement);
+  renderGoalEditors(getActiveMember());
+  positionGoalPopup();
+}
+
+function getElementRect(element) {
+  const rect = element.getBoundingClientRect();
+  return {
+    bottom: rect.bottom,
+    height: rect.height,
+    left: rect.left,
+    right: rect.right,
+    top: rect.top,
+    width: rect.width,
+  };
+}
+
+function positionGoalPopup() {
+  if (elements.goalPopup.hidden || !goalPopupAnchorRect) return;
+
+  const panelRect = elements.goalPopupPanel.getBoundingClientRect();
+  const viewportMargin = 12;
+  const gap = 12;
+  const anchorCenter = goalPopupAnchorRect.left + goalPopupAnchorRect.width / 2;
+  const halfPanelWidth = panelRect.width / 2;
+  const left = clamp(anchorCenter, viewportMargin + halfPanelWidth, window.innerWidth - viewportMargin - halfPanelWidth);
+  const maxTop = Math.max(viewportMargin, window.innerHeight - viewportMargin - panelRect.height);
+  const top = clamp(goalPopupAnchorRect.bottom + gap, viewportMargin, maxTop);
+
+  elements.goalPopupPanel.style.left = `${left}px`;
+  elements.goalPopupPanel.style.top = `${top}px`;
+}
+
+function focusPendingCriterionEditor() {
+  if (!pendingCriterionFocus || elements.goalPopup.hidden) return;
+  const { goalId, criterionId } = pendingCriterionFocus;
+
   const editors = elements.goalList.querySelectorAll(".goal-editor");
-  const editor = editors[goalEditorIndex];
-  if (!editor) return;
+  const editor = [...editors].find((item) => item.dataset.goalId === goalId);
+  if (!editor) {
+    pendingCriterionFocus = null;
+    return;
+  }
 
   const criterionInputs = editor.querySelectorAll(".criterion-label-input");
   const goal = findGoal(goalId);
   const criterionIndex = goal?.criteria.findIndex((criterion) => criterion.id === criterionId) ?? -1;
   const input = criterionInputs[criterionIndex];
-  input?.focus();
+  if (input) {
+    input.focus();
+    input.select();
+  }
+
+  pendingCriterionFocus = null;
 }
 
 function startDrag(event, payload) {
@@ -958,14 +1310,30 @@ function escapeHtml(value) {
 }
 
 elements.memberSelect.addEventListener("change", (event) => {
-  state.activeMemberId = event.target.value;
-  render();
+  selectMember(event.target.value);
 });
 
 elements.saveMember.addEventListener("click", saveMember);
-elements.addGoal.addEventListener("click", addGoal);
+elements.closeGoalPopup.addEventListener("click", closeGoalPopup);
+elements.goalPopup.addEventListener("click", (event) => {
+  if (event.target === elements.goalPopup) closeGoalPopup();
+});
+elements.cancelConfirm.addEventListener("click", closeConfirmDialog);
+elements.confirmDelete.addEventListener("click", confirmRemoveMember);
+elements.confirmDialog.addEventListener("click", (event) => {
+  if (event.target === elements.confirmDialog) closeConfirmDialog();
+});
 elements.toggleLeftSidebar.addEventListener("click", () => toggleSidebar("left"));
 elements.toggleRightSidebar.addEventListener("click", () => toggleSidebar("right"));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !elements.goalPopup.hidden) closeGoalPopup();
+  if (event.key === "Escape" && !elements.confirmDialog.hidden) closeConfirmDialog();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") persistState();
+});
+window.addEventListener("resize", positionGoalPopup);
+window.addEventListener("beforeunload", persistState);
 elements.memberName.addEventListener("keydown", (event) => {
   if (event.key === "Enter") saveMember();
 });
@@ -987,3 +1355,4 @@ elements.timelineFrame.addEventListener("dragleave", (event) => {
 elements.timelineFrame.addEventListener("drop", handleGridDrop);
 
 render();
+initializeCloudSync();
