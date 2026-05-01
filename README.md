@@ -6,6 +6,30 @@ Webapp statica per visualizzare e modificare il piano di miglioramento personale
 
 Apri `index.html` nel browser. I dati vengono salvati automaticamente nel browser e sincronizzati con Supabase quando la configurazione cloud e' disponibile.
 
+## Uso da altri dispositivi
+
+### Rete locale
+
+Se l'altro dispositivo e' sulla stessa rete del PC:
+
+```bash
+node serve-local.js
+```
+
+Apri dal secondo dispositivo l'indirizzo mostrato come `Planner disponibile in rete locale`.
+
+### Pubblicazione web
+
+Il progetto e' pronto per GitHub Pages. Dopo il push su GitHub:
+
+1. Apri il repository su GitHub.
+2. Vai in `Settings` > `Pages`.
+3. In `Build and deployment`, seleziona `Deploy from a branch`.
+4. Seleziona branch `main` e cartella `/(root)`.
+5. Salva e apri l'URL pubblicato da GitHub Pages.
+
+Nota: GitHub Pages e' incluso gratis sui repository pubblici. Per repository privati puo' richiedere un piano GitHub a pagamento.
+
 ## Sincronizzazione Supabase
 
 Per mantenere gli stessi dati su dispositivi diversi:
