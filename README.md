@@ -6,11 +6,19 @@ Webapp statica per visualizzare e modificare il piano di miglioramento personale
 
 Apri `index.html` nel browser. I dati vengono salvati automaticamente nel browser e sincronizzati con Supabase quando la configurazione cloud e' disponibile.
 
-## Uso da altri dispositivi
+## Uso da altri dispositivi tramite repo privato
 
-### Rete locale
+Il repository puo' restare privato. Su ogni dispositivo:
 
-Se l'altro dispositivo e' sulla stessa rete del PC:
+1. Clona il repository GitHub oppure esegui `git pull` se e' gia' presente.
+2. Apri `index.html` nel browser del dispositivo.
+3. Lascia invariato `supabase-config.js`: contiene la configurazione che permette di leggere e salvare lo stesso workspace Supabase.
+
+In questo modo ogni dispositivo usa una copia locale della webapp, mentre i dati restano condivisi tramite Supabase.
+
+### Server locale opzionale
+
+Se vuoi usare la webapp da un altro dispositivo sulla stessa rete senza clonare il repo, puoi avviare un piccolo server dal PC:
 
 ```bash
 node serve-local.js
@@ -18,17 +26,10 @@ node serve-local.js
 
 Apri dal secondo dispositivo l'indirizzo mostrato come `Planner disponibile in rete locale`.
 
-### Pubblicazione web
+### Pubblicazione web opzionale
 
-Il progetto e' pronto per GitHub Pages. Dopo il push su GitHub:
+Il progetto e' anche compatibile con GitHub Pages, ma non e' necessario per l'uso privato tramite clone/pull locale. GitHub Pages richiede un repository pubblico oppure un piano GitHub che supporti Pages su repository privati.
 
-1. Apri il repository su GitHub.
-2. Vai in `Settings` > `Pages`.
-3. In `Build and deployment`, seleziona `Deploy from a branch`.
-4. Seleziona branch `main` e cartella `/(root)`.
-5. Salva e apri l'URL pubblicato da GitHub Pages.
-
-Nota: GitHub Pages e' incluso gratis sui repository pubblici. Per repository privati puo' richiedere un piano GitHub a pagamento.
 
 ## Sincronizzazione Supabase
 
