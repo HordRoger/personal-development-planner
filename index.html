@@ -41,23 +41,11 @@
 
         <section class="panel add-member-panel">
           <div class="panel-header">
-            <h2>Membri</h2>
+            <h2>Utenti visibili</h2>
           </div>
           <div id="memberList" class="member-list" aria-label="Membri esistenti"></div>
-          <div class="split-fields">
-            <label>
-              <span class="field-label">Nome</span>
-              <input id="memberName" class="field" type="text" placeholder="Nuovo membro" />
-            </label>
-            <label>
-              <span class="field-label">Ruolo</span>
-              <input id="memberRole" class="field" type="text" placeholder="Ruolo" />
-            </label>
-          </div>
-
-          <button id="saveMember" class="primary-action" type="button">
-            <span class="button-icon" aria-hidden="true">+</span>
-            Salva membro
+          <button id="openUserManagement" class="primary-action" type="button">
+            Gestione utenti
           </button>
         </section>
 
@@ -82,6 +70,9 @@
             <button id="toggleTheme" class="theme-toggle" type="button" aria-label="Passa al tema chiaro" title="Passa al tema chiaro">
               Tema chiaro
             </button>
+            <button id="openUserManagementHeader" class="theme-toggle" type="button">Utenti</button>
+            <span id="sessionUser" class="session-user">Accesso</span>
+            <button id="logoutUser" class="theme-toggle" type="button">Esci</button>
             <span id="saveStatus" class="save-status" aria-live="polite">Salvataggio locale</span>
           </div>
         </header>
@@ -106,6 +97,74 @@
       </section>
 
     </main>
+
+    <div id="loginDialog" class="auth-dialog">
+      <section class="panel auth-panel" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <div>
+          <p class="eyebrow">Accesso richiesto</p>
+          <h1 id="loginTitle">Login piano di crescita</h1>
+        </div>
+        <form id="loginForm" class="auth-form">
+          <label>
+            <span class="field-label">Nome</span>
+            <input id="loginName" class="field" type="text" autocomplete="username" placeholder="Nome utente" required />
+          </label>
+          <label>
+            <span class="field-label">Password</span>
+            <input id="loginPassword" class="field" type="password" autocomplete="current-password" placeholder="Password" required />
+          </label>
+          <p id="loginError" class="form-error" role="alert" hidden>Nome o password non corretti.</p>
+          <button id="loginSubmit" class="primary-action" type="submit">Entra</button>
+        </form>
+      </section>
+    </div>
+
+    <div id="userManagementDialog" class="management-dialog" hidden>
+      <section class="panel management-panel" role="dialog" aria-modal="true" aria-labelledby="userManagementTitle">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Autorizzazioni</p>
+            <h2 id="userManagementTitle">Gestione utenti</h2>
+          </div>
+          <button id="closeUserManagement" class="icon-button" type="button" aria-label="Chiudi gestione utenti" title="Chiudi gestione utenti">x</button>
+        </div>
+
+        <div id="userManagementList" class="user-management-list"></div>
+
+        <section id="createUserPanel" class="create-user-panel" aria-label="Aggiungi sottoposto">
+          <div class="panel-header">
+            <h2>Nuovo utente</h2>
+          </div>
+          <div class="user-form-grid">
+            <label>
+              <span class="field-label">Nome</span>
+              <input id="memberName" class="field" type="text" placeholder="Nuovo utente" />
+            </label>
+            <label>
+              <span class="field-label">Ruolo</span>
+              <input id="memberRole" class="field" type="text" placeholder="Ruolo operativo" />
+            </label>
+            <label>
+              <span class="field-label">Password</span>
+              <input id="memberPassword" class="field" type="password" placeholder="Password iniziale" />
+            </label>
+            <label>
+              <span class="field-label">Livello</span>
+              <select id="memberLevel" class="field"></select>
+            </label>
+            <label>
+              <span class="field-label">Responsabile</span>
+              <select id="memberManager" class="field"></select>
+            </label>
+          </div>
+          <p id="userManagementError" class="form-error" role="alert" hidden></p>
+          <button id="saveMember" class="primary-action" type="button">
+            <span class="button-icon" aria-hidden="true">+</span>
+            Aggiungi utente
+          </button>
+        </section>
+      </section>
+    </div>
 
     <div id="goalPopup" class="goal-popup" hidden>
       <section class="panel compact goal-popup-panel" role="dialog" aria-modal="true" aria-labelledby="goalPopupTitle">

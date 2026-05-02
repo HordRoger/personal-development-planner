@@ -1,5 +1,5 @@
 const STORAGE_KEY = "team-improvement-plan";
-const STORAGE_VERSION = 2;
+const STORAGE_VERSION = 3;
 const CLOUD_SAVE_DEBOUNCE_MS = 900;
 const ROW_HEIGHT = 92;
 const LABEL_WIDTH = 170;
@@ -29,6 +29,26 @@ const TIMELINE_UNIT_WIDTHS = {
   [TIMELINE_ZOOM_WEEK]: 72,
   [TIMELINE_ZOOM_DAY]: 42,
 };
+const ACCESS_JUNIOR = 1;
+const ACCESS_SENIOR = 2;
+const ACCESS_TEAM_LEADER = 3;
+const ACCESS_LEVELS = [ACCESS_JUNIOR, ACCESS_SENIOR, ACCESS_TEAM_LEADER];
+const ACCESS_LEVEL_LABELS = {
+  [ACCESS_JUNIOR]: "Junior",
+  [ACCESS_SENIOR]: "Senior",
+  [ACCESS_TEAM_LEADER]: "Team leader",
+};
+const MIGRATED_USER_PASSWORD = "password";
+const REQUIRED_USERS = [
+  {
+    id: "ruggero-fermariello",
+    name: "Ruggero Fermariello",
+    role: "Team leader",
+    level: ACCESS_TEAM_LEADER,
+    managerId: "",
+    password: "123",
+  },
+];
 
 const criteriaStatusLabels = {
   locked: "Bloccato",
@@ -42,9 +62,21 @@ const defaultState = {
   timelineStartDate: DEFAULT_TIMELINE_START_DATE,
   members: [
     {
+      id: "ruggero-fermariello",
+      name: "Ruggero Fermariello",
+      role: "Team leader",
+      level: ACCESS_TEAM_LEADER,
+      managerId: "",
+      password: "123",
+      goals: [],
+    },
+    {
       id: "marta-rossi",
       name: "Marta Rossi",
       role: "Frontend Engineer",
+      level: ACCESS_TEAM_LEADER,
+      managerId: "",
+      password: "marta",
       goals: [
         {
           id: "g1",
@@ -76,6 +108,9 @@ const defaultState = {
       id: "luca-bianchi",
       name: "Luca Bianchi",
       role: "Backend Engineer",
+      level: ACCESS_SENIOR,
+      managerId: "marta-rossi",
+      password: "luca",
       goals: [
         {
           id: "g4",
@@ -95,6 +130,24 @@ const defaultState = {
         },
       ],
     },
+    {
+      id: "giulia-verdi",
+      name: "Giulia Verdi",
+      role: "Junior QA",
+      level: ACCESS_JUNIOR,
+      managerId: "luca-bianchi",
+      password: "giulia",
+      goals: [
+        {
+          id: "g6",
+          title: "Autonomia sui test regressivi",
+          start: 5,
+          duration: 6,
+          progress: 30,
+          criteria: [{ id: "c6", label: "Suite regressiva eseguita", position: 30, status: "locked" }],
+        },
+      ],
+    },
   ],
 };
 
@@ -107,6 +160,9 @@ const elements = {
   memberSelect: document.querySelector("#memberSelect"),
   memberName: document.querySelector("#memberName"),
   memberRole: document.querySelector("#memberRole"),
+  memberPassword: document.querySelector("#memberPassword"),
+  memberLevel: document.querySelector("#memberLevel"),
+  memberManager: document.querySelector("#memberManager"),
   saveMember: document.querySelector("#saveMember"),
   memberList: document.querySelector("#memberList"),
   memberCount: document.querySelector("#memberCount"),
@@ -133,6 +189,20 @@ const elements = {
   timelineZoomLabel: document.querySelector("#timelineZoomLabel"),
   timelineYear: document.querySelector("#timelineYear"),
   toggleTheme: document.querySelector("#toggleTheme"),
+  openUserManagement: document.querySelector("#openUserManagement"),
+  openUserManagementHeader: document.querySelector("#openUserManagementHeader"),
+  closeUserManagement: document.querySelector("#closeUserManagement"),
+  userManagementDialog: document.querySelector("#userManagementDialog"),
+  userManagementList: document.querySelector("#userManagementList"),
+  userManagementError: document.querySelector("#userManagementError"),
+  createUserPanel: document.querySelector("#createUserPanel"),
+  loginDialog: document.querySelector("#loginDialog"),
+  loginForm: document.querySelector("#loginForm"),
+  loginName: document.querySelector("#loginName"),
+  loginPassword: document.querySelector("#loginPassword"),
+  loginError: document.querySelector("#loginError"),
+  sessionUser: document.querySelector("#sessionUser"),
+  logoutUser: document.querySelector("#logoutUser"),
   saveStatus: document.querySelector("#saveStatus"),
   goCurrentWeek: document.querySelector("#goCurrentWeek"),
   goRoadmap: document.querySelector("#goRoadmap"),
@@ -147,6 +217,10 @@ let goalPopupAnchorRect = null;
 let pendingCriterionFocus = null;
 let pendingDeleteMemberId = null;
 let roadmapPanState = null;
+let loginFocusQueued = false;
+const auth = {
+  currentUserId: null,
+};
 const cloudSync = {
   ready: false,
   saveTimer: null,
@@ -207,16 +281,114 @@ function normalizeState(source) {
     id: member.id || createId(`member-${memberIndex + 1}`),
     name: member.name || `Membro ${memberIndex + 1}`,
     role: member.role || "",
+    level: normalizeAccessLevel(member.level ?? inferAccessLevel(member, memberIndex)),
+    managerId: member.managerId || "",
+    password: String(member.password || MIGRATED_USER_PASSWORD),
     goals: Array.isArray(member.goals)
       ? member.goals.map((goal) => normalizeGoal(goal, normalized.timelineWeeks, legacyMonths, timelineMigration))
       : [],
   }));
+
+  const sourceVersion = Number(source?.schemaVersion);
+  repairMemberHierarchy(normalized.members, !Number.isFinite(sourceVersion) || sourceVersion < STORAGE_VERSION);
+  ensureRequiredUsers(normalized.members);
 
   if (!normalized.members.some((member) => member.id === normalized.activeMemberId)) {
     normalized.activeMemberId = normalized.members[0]?.id || "";
   }
 
   return normalized;
+}
+
+function ensureRequiredUsers(members) {
+  REQUIRED_USERS.forEach((requiredUser) => {
+    const existing = members.find((member) => isRequiredUser(member, requiredUser));
+    if (existing) {
+      existing.role = existing.role || requiredUser.role;
+      existing.level = requiredUser.level;
+      existing.managerId = requiredUser.managerId;
+      existing.password = requiredUser.password;
+      return;
+    }
+
+    members.unshift({
+      id: requiredUser.id || createId(requiredUser.name),
+      name: requiredUser.name,
+      role: requiredUser.role,
+      level: requiredUser.level,
+      managerId: requiredUser.managerId,
+      password: requiredUser.password,
+      goals: [],
+    });
+  });
+}
+
+function isRequiredUser(member, requiredUser) {
+  return normalizeUserName(member?.name) === normalizeUserName(requiredUser.name);
+}
+
+function normalizeUserName(name) {
+  return String(name || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function normalizeAccessLevel(value) {
+  const level = Math.round(Number(value));
+  return ACCESS_LEVELS.includes(level) ? level : ACCESS_JUNIOR;
+}
+
+function inferAccessLevel(member, memberIndex) {
+  const role = String(member?.role || "").toLowerCase();
+  if (/\b(team\s*leader|leader|lead)\b/.test(role)) return ACCESS_TEAM_LEADER;
+  if (/\bsenior\b/.test(role)) return ACCESS_SENIOR;
+  if (/\bjunior\b/.test(role)) return ACCESS_JUNIOR;
+  if (memberIndex === 0) return ACCESS_TEAM_LEADER;
+  if (memberIndex === 1) return ACCESS_SENIOR;
+  return ACCESS_JUNIOR;
+}
+
+function repairMemberHierarchy(members, assignMissingManagers = false) {
+  const memberById = new Map(members.map((member) => [member.id, member]));
+
+  members.forEach((member) => {
+    const manager = memberById.get(member.managerId);
+    if (
+      !manager ||
+      manager.id === member.id ||
+      manager.level <= member.level ||
+      createsManagementCycle(member.id, manager.id, memberById)
+    ) {
+      member.managerId = "";
+    }
+  });
+
+  if (!assignMissingManagers) return;
+
+  members.forEach((member) => {
+    if (member.managerId || member.level >= ACCESS_TEAM_LEADER) return;
+    const manager = findDefaultManagerForMember(member, members);
+    if (manager) member.managerId = manager.id;
+  });
+}
+
+function findDefaultManagerForMember(member, members) {
+  return (
+    members.find((candidate) => candidate.id !== member.id && candidate.level === member.level + 1) ||
+    members.find((candidate) => candidate.id !== member.id && candidate.level > member.level) ||
+    null
+  );
+}
+
+function createsManagementCycle(memberId, managerId, memberById) {
+  const seen = new Set([memberId]);
+  let current = memberById.get(managerId);
+
+  while (current) {
+    if (seen.has(current.id)) return true;
+    seen.add(current.id);
+    current = memberById.get(current.managerId);
+  }
+
+  return false;
 }
 
 function getNormalizedTimelineYear(source) {
@@ -456,8 +628,82 @@ function isNewerDateValue(candidate, reference) {
   return new Date(candidate).getTime() > new Date(reference).getTime();
 }
 
+function getCurrentUser() {
+  return state.members.find((member) => member.id === auth.currentUserId) ?? null;
+}
+
+function getVisibleMembers(user = getCurrentUser()) {
+  if (!user) return [];
+  return state.members.filter((member) => canAccessMember(user, member));
+}
+
 function getActiveMember() {
-  return state.members.find((member) => member.id === state.activeMemberId) ?? state.members[0] ?? null;
+  const visibleMembers = getVisibleMembers();
+  return visibleMembers.find((member) => member.id === state.activeMemberId) ?? null;
+}
+
+function ensureActiveMemberVisible() {
+  if (!getCurrentUser()) return null;
+
+  const visibleMembers = getVisibleMembers();
+  if (!visibleMembers.length) {
+    state.activeMemberId = "";
+    closeGoalPopup();
+    return null;
+  }
+
+  if (!visibleMembers.some((member) => member.id === state.activeMemberId)) {
+    state.activeMemberId = getCurrentUser()?.id || visibleMembers[0].id;
+    closeGoalPopup();
+  }
+
+  return getActiveMember();
+}
+
+function canAccessMember(user, member) {
+  if (!user || !member) return false;
+  if (user.id === member.id) return true;
+  if (isWorkspaceOwner(user)) return true;
+  if (user.level <= ACCESS_JUNIOR) return false;
+  return isSubordinateOf(member.id, user.id);
+}
+
+function isWorkspaceOwner(user) {
+  return REQUIRED_USERS.some(
+    (requiredUser) => isRequiredUser(user, requiredUser) && user.level === ACCESS_TEAM_LEADER,
+  );
+}
+
+function isSubordinateOf(memberId, managerId) {
+  const memberById = new Map(state.members.map((member) => [member.id, member]));
+  const seen = new Set();
+  let current = memberById.get(memberId);
+
+  while (current?.managerId) {
+    if (seen.has(current.id)) return false;
+    seen.add(current.id);
+    if (current.managerId === managerId) return true;
+    current = memberById.get(current.managerId);
+  }
+
+  return false;
+}
+
+function canManageMember(user, member) {
+  return canAccessMember(user, member);
+}
+
+function canCreateSubordinate(user = getCurrentUser()) {
+  return Boolean(user && user.level > ACCESS_JUNIOR);
+}
+
+function getAccessLevelLabel(level) {
+  return ACCESS_LEVEL_LABELS[normalizeAccessLevel(level)] || ACCESS_LEVEL_LABELS[ACCESS_JUNIOR];
+}
+
+function getMemberSubtitle(member) {
+  const role = member.role || "Ruolo non indicato";
+  return `${role} · ${getAccessLevelLabel(member.level)}`;
 }
 
 function createId(value) {
@@ -512,7 +758,7 @@ function syncGoalProgress(goal) {
 }
 
 function render() {
-  const activeMember = getActiveMember();
+  const activeMember = ensureActiveMemberVisible();
   const timelineUnits = getTimelineUnits();
   const currentUnitIndex = getCurrentTimelineUnitIndex(timelineUnits);
   const timelineUnitWidth = getTimelineUnitWidth();
@@ -536,17 +782,20 @@ function render() {
   renderGoalEditors(activeMember);
   renderTimeline(activeMember);
   renderRoadmap(activeMember);
+  renderUserManagement();
   applyWorkspaceView();
   applySidebarState();
   applyTheme();
+  applyAuthState();
   window.requestAnimationFrame(updateTimelineOverlayPosition);
   persistState();
 }
 
 function renderMemberSelect(activeMember) {
   elements.memberSelect.innerHTML = "";
+  const visibleMembers = getVisibleMembers();
 
-  state.members.forEach((member) => {
+  visibleMembers.forEach((member) => {
     const option = document.createElement("option");
     option.value = member.id;
     option.textContent = member.name;
@@ -554,22 +803,24 @@ function renderMemberSelect(activeMember) {
     elements.memberSelect.append(option);
   });
 
-  elements.memberCount.textContent = state.members.length;
-  elements.memberSelect.disabled = state.members.length === 0;
+  elements.memberCount.textContent = visibleMembers.length;
+  elements.memberSelect.disabled = visibleMembers.length === 0;
 }
 
 function renderMemberList(activeMember) {
   elements.memberList.innerHTML = "";
+  const visibleMembers = getVisibleMembers();
+  const currentUser = getCurrentUser();
 
-  if (!state.members.length) {
+  if (!visibleMembers.length) {
     const empty = document.createElement("p");
     empty.className = "member-list-empty";
-    empty.textContent = "Nessun membro salvato";
+    empty.textContent = "Nessun utente disponibile";
     elements.memberList.append(empty);
     return;
   }
 
-  state.members.forEach((member) => {
+  visibleMembers.forEach((member) => {
     const item = document.createElement("div");
     item.className = `member-list-item${member.id === activeMember?.id ? " is-active" : ""}`;
 
@@ -580,7 +831,7 @@ function renderMemberList(activeMember) {
       <span class="member-list-avatar" aria-hidden="true">${escapeHtml(getInitials(member.name))}</span>
       <span>
         <strong>${escapeHtml(member.name)}</strong>
-        <small>${escapeHtml(member.role || "Ruolo non indicato")}</small>
+        <small>${escapeHtml(getMemberSubtitle(member))}</small>
       </span>
     `;
     selectButton.addEventListener("click", () => selectMember(member.id));
@@ -592,6 +843,7 @@ function renderMemberList(activeMember) {
     removeButton.setAttribute("aria-label", `Cancella ${member.name}`);
     removeButton.textContent = "x";
     removeButton.addEventListener("click", () => requestRemoveMember(member.id));
+    removeButton.hidden = !currentUser || currentUser.id === member.id || !canManageMember(currentUser, member);
 
     item.append(selectButton, removeButton);
     elements.memberList.append(item);
@@ -607,8 +859,206 @@ function renderMemberSummary(activeMember) {
   }
 
   elements.activeMemberName.textContent = activeMember.name;
-  elements.activeMemberRole.textContent = activeMember.role || "Ruolo non indicato";
+  elements.activeMemberRole.textContent = getMemberSubtitle(activeMember);
   elements.memberAvatar.textContent = getInitials(activeMember.name);
+}
+
+function renderUserManagement() {
+  const currentUser = getCurrentUser();
+  elements.userManagementList.innerHTML = "";
+
+  if (!currentUser) {
+    elements.createUserPanel.hidden = true;
+    return;
+  }
+
+  getVisibleMembers(currentUser).forEach((member) => {
+    elements.userManagementList.append(createUserManagementCard(member, currentUser));
+  });
+
+  elements.createUserPanel.hidden = !canCreateSubordinate(currentUser);
+  if (!elements.createUserPanel.hidden) {
+    populateCreateUserLevelOptions();
+    populateCreateUserManagerOptions();
+  }
+}
+
+function createUserManagementCard(member, currentUser) {
+  const isCurrentUser = member.id === currentUser.id;
+  const card = document.createElement("article");
+  card.className = `user-card${isCurrentUser ? " is-current" : ""}`;
+
+  const header = document.createElement("div");
+  header.className = "user-card-header";
+
+  const identity = document.createElement("div");
+  identity.className = "user-card-identity";
+  identity.innerHTML = `
+    <span class="member-list-avatar" aria-hidden="true">${escapeHtml(getInitials(member.name))}</span>
+    <span>
+      <strong>${escapeHtml(member.name)}</strong>
+      <small>${escapeHtml(isCurrentUser ? "Utente connesso" : "Sottoposto")}</small>
+    </span>
+  `;
+
+  const deleteButton = document.createElement("button");
+  deleteButton.className = "remove-member";
+  deleteButton.type = "button";
+  deleteButton.title = `Cancella ${member.name}`;
+  deleteButton.setAttribute("aria-label", `Cancella ${member.name}`);
+  deleteButton.textContent = "x";
+  deleteButton.hidden = isCurrentUser || !canManageMember(currentUser, member);
+  deleteButton.addEventListener("click", () => requestRemoveMember(member.id));
+
+  header.append(identity, deleteButton);
+
+  const fields = document.createElement("div");
+  fields.className = "user-card-fields";
+
+  const nameInput = createUserTextInput(member.name, "Nome utente");
+  nameInput.addEventListener("change", (event) => updateMemberUser(member.id, { name: event.target.value }));
+
+  const roleInput = createUserTextInput(member.role, "Ruolo operativo");
+  roleInput.addEventListener("change", (event) => updateMemberUser(member.id, { role: event.target.value }));
+
+  const passwordInput = createUserTextInput("", "Nuova password");
+  passwordInput.type = "password";
+  passwordInput.autocomplete = "new-password";
+  passwordInput.addEventListener("change", (event) => {
+    updateMemberUser(member.id, { password: event.target.value });
+    event.target.value = "";
+  });
+
+  const levelSelect = document.createElement("select");
+  levelSelect.className = "field";
+  populateLevelSelect(levelSelect, getEditableLevelsForMember(member, currentUser), member.level);
+  levelSelect.disabled = isCurrentUser;
+  levelSelect.addEventListener("change", (event) => updateMemberUser(member.id, { level: Number(event.target.value) }));
+
+  const managerSelect = document.createElement("select");
+  managerSelect.className = "field";
+  populateManagerSelect(managerSelect, member, member.level, currentUser);
+  managerSelect.disabled = isCurrentUser;
+  managerSelect.addEventListener("change", (event) => updateMemberUser(member.id, { managerId: event.target.value }));
+
+  fields.append(
+    createFieldShell("Nome", nameInput),
+    createFieldShell("Ruolo", roleInput),
+    createFieldShell("Password", passwordInput),
+    createFieldShell("Livello", levelSelect),
+    createFieldShell("Responsabile", managerSelect),
+  );
+  card.append(header, fields);
+
+  return card;
+}
+
+function createUserTextInput(value, label) {
+  const input = document.createElement("input");
+  input.className = "field";
+  input.type = "text";
+  input.value = value || "";
+  input.placeholder = label;
+  input.setAttribute("aria-label", label);
+  return input;
+}
+
+function createFieldShell(labelText, control) {
+  const label = document.createElement("label");
+  const text = document.createElement("span");
+  text.className = "field-label";
+  text.textContent = labelText;
+  label.append(text, control);
+  return label;
+}
+
+function getEditableLevelsForMember(member, currentUser) {
+  if (member.id === currentUser.id) return [member.level];
+  return ACCESS_LEVELS.filter((level) => level < currentUser.level);
+}
+
+function populateLevelSelect(select, levels, selectedLevel) {
+  select.innerHTML = "";
+  levels.forEach((level) => {
+    const option = document.createElement("option");
+    option.value = String(level);
+    option.textContent = `${level} - ${getAccessLevelLabel(level)}`;
+    option.selected = level === selectedLevel;
+    select.append(option);
+  });
+}
+
+function populateManagerSelect(select, member, level, currentUser) {
+  select.innerHTML = "";
+  const candidates = getManagerCandidates(level, currentUser, member.id);
+  const currentManager = state.members.find((candidate) => candidate.id === member.managerId);
+  const options =
+    currentManager && !candidates.some((candidate) => candidate.id === currentManager.id)
+      ? [currentManager, ...candidates]
+      : candidates;
+
+  if (level >= ACCESS_TEAM_LEADER || !options.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "Nessuno";
+    select.append(option);
+  }
+
+  options.forEach((candidate) => {
+    const option = document.createElement("option");
+    option.value = candidate.id;
+    option.textContent = candidate.name;
+    option.selected = candidate.id === member.managerId;
+    select.append(option);
+  });
+
+  if (!select.value && options.some((candidate) => candidate.id === currentUser.id)) {
+    select.value = currentUser.id;
+  }
+}
+
+function getManagerCandidates(level, currentUser = getCurrentUser(), excludedMemberId = "") {
+  if (!currentUser) return [];
+  return getVisibleMembers(currentUser).filter(
+    (candidate) => candidate.id !== excludedMemberId && candidate.level > level,
+  );
+}
+
+function populateCreateUserLevelOptions() {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+
+  const levels = ACCESS_LEVELS.filter((level) => level < currentUser.level);
+  const previousLevel = Number(elements.memberLevel.value);
+  populateLevelSelect(elements.memberLevel, levels, levels.includes(previousLevel) ? previousLevel : levels[0]);
+}
+
+function populateCreateUserManagerOptions() {
+  const currentUser = getCurrentUser();
+  if (!currentUser) return;
+
+  const level = normalizeAccessLevel(elements.memberLevel.value);
+  const candidates = getManagerCandidates(level, currentUser);
+  elements.memberManager.innerHTML = "";
+  candidates.forEach((candidate) => {
+    const option = document.createElement("option");
+    option.value = candidate.id;
+    option.textContent = candidate.name;
+    option.selected = candidate.id === currentUser.id;
+    elements.memberManager.append(option);
+  });
+}
+
+function showUserManagementError(message) {
+  elements.userManagementError.textContent = message;
+  elements.userManagementError.hidden = !message;
+}
+
+function clearUserCreationForm() {
+  elements.memberName.value = "";
+  elements.memberRole.value = "";
+  elements.memberPassword.value = "";
+  showUserManagementError("");
 }
 
 function renderGoalEditors(activeMember) {
@@ -801,6 +1251,70 @@ function updateCriterion(goalId, criterionId, patch) {
   persistState();
 }
 
+function updateMemberUser(memberId, patch) {
+  const currentUser = getCurrentUser();
+  const member = state.members.find((item) => item.id === memberId);
+  if (!currentUser || !member || !canManageMember(currentUser, member)) return;
+
+  if (Object.hasOwn(patch, "name")) {
+    const name = String(patch.name || "").trim();
+    if (!name) {
+      showUserManagementError("Il nome utente non puo essere vuoto.");
+      renderUserManagement();
+      return;
+    }
+    const duplicate = state.members.find(
+      (candidate) => candidate.id !== member.id && candidate.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (duplicate) {
+      showUserManagementError("Esiste gia un utente con questo nome.");
+      renderUserManagement();
+      return;
+    }
+    member.name = name;
+  }
+
+  if (Object.hasOwn(patch, "role")) {
+    member.role = String(patch.role || "").trim();
+  }
+
+  if (Object.hasOwn(patch, "password")) {
+    const password = String(patch.password || "").trim();
+    if (password) member.password = password;
+  }
+
+  if (member.id !== currentUser.id && Object.hasOwn(patch, "level")) {
+    const maxLevel = currentUser.level - 1;
+    member.level = clamp(normalizeAccessLevel(patch.level), ACCESS_JUNIOR, maxLevel);
+    if (!getValidatedManagerId(member.managerId, member.level, member.id)) {
+      member.managerId = getValidatedManagerId(currentUser.id, member.level, member.id);
+    }
+  }
+
+  if (member.id !== currentUser.id && Object.hasOwn(patch, "managerId")) {
+    member.managerId = getValidatedManagerId(patch.managerId, member.level, member.id);
+  }
+
+  repairMemberHierarchy(state.members);
+  showUserManagementError("");
+  render();
+}
+
+function getValidatedManagerId(managerId, level, memberId = "") {
+  const manager = state.members.find((member) => member.id === managerId);
+  const memberById = new Map(state.members.map((member) => [member.id, member]));
+  if (
+    !manager ||
+    manager.id === memberId ||
+    manager.level <= level ||
+    createsManagementCycle(memberId, manager.id, memberById)
+  ) {
+    return "";
+  }
+
+  return manager.id;
+}
+
 function removeGoal(goalId) {
   const activeMember = getActiveMember();
   if (!activeMember) return;
@@ -811,15 +1325,18 @@ function removeGoal(goalId) {
 }
 
 function selectMember(memberId) {
-  if (!state.members.some((member) => member.id === memberId)) return;
+  const currentUser = getCurrentUser();
+  const member = state.members.find((item) => item.id === memberId);
+  if (!currentUser || !member || !canAccessMember(currentUser, member)) return;
   state.activeMemberId = memberId;
   closeGoalPopup();
   render();
 }
 
 function requestRemoveMember(memberId) {
+  const currentUser = getCurrentUser();
   const member = state.members.find((item) => item.id === memberId);
-  if (!member) return;
+  if (!member || !currentUser || member.id === currentUser.id || !canManageMember(currentUser, member)) return;
 
   pendingDeleteMemberId = memberId;
   elements.confirmMessage.textContent = `Eliminare ${member.name} e tutti i suoi obiettivi?`;
@@ -841,12 +1358,20 @@ function confirmRemoveMember() {
 }
 
 function removeMember(memberId) {
+  const currentUser = getCurrentUser();
+  const member = state.members.find((item) => item.id === memberId);
+  if (!member || !currentUser || member.id === currentUser.id || !canManageMember(currentUser, member)) return;
+
   const memberIndex = state.members.findIndex((member) => member.id === memberId);
   if (memberIndex < 0) return;
 
   state.members.splice(memberIndex, 1);
+  state.members.forEach((item) => {
+    if (item.managerId === memberId) item.managerId = currentUser.id;
+  });
+  repairMemberHierarchy(state.members);
   if (state.activeMemberId === memberId) {
-    state.activeMemberId = state.members[Math.max(0, memberIndex - 1)]?.id || state.members[0]?.id || "";
+    state.activeMemberId = currentUser.id;
     closeGoalPopup();
   }
 
@@ -924,31 +1449,46 @@ function removeCriterion(goalId, criterionId) {
 }
 
 function saveMember() {
+  const currentUser = getCurrentUser();
+  if (!canCreateSubordinate(currentUser)) return;
+
   const name = elements.memberName.value.trim();
   const role = elements.memberRole.value.trim();
+  const password = elements.memberPassword.value.trim();
+  const requestedLevel = normalizeAccessLevel(elements.memberLevel.value);
+  const level = clamp(requestedLevel, ACCESS_JUNIOR, currentUser.level - 1);
+  const managerId = getValidatedManagerId(elements.memberManager.value, level) || currentUser.id;
+
   if (!name) {
     elements.memberName.focus();
+    showUserManagementError("Inserisci il nome del nuovo utente.");
+    return;
+  }
+
+  if (!password) {
+    elements.memberPassword.focus();
+    showUserManagementError("Inserisci una password iniziale.");
     return;
   }
 
   const existing = state.members.find((member) => member.name.toLowerCase() === name.toLowerCase());
-
   if (existing) {
-    existing.role = role || existing.role;
-    state.activeMemberId = existing.id;
-  } else {
-    const newMember = {
-      id: createId(name),
-      name,
-      role,
-      goals: [createGoal({ title: "Prima linea", start: 1 })],
-    };
-    state.members.push(newMember);
-    state.activeMemberId = newMember.id;
+    showUserManagementError("Esiste gia un utente con questo nome.");
+    return;
   }
 
-  elements.memberName.value = "";
-  elements.memberRole.value = "";
+  const newMember = {
+    id: createId(name),
+    name,
+    role,
+    level,
+    managerId,
+    password,
+    goals: [createGoal({ title: "Prima linea", start: 1 })],
+  };
+  state.members.push(newMember);
+  state.activeMemberId = newMember.id;
+  clearUserCreationForm();
   render();
 }
 
@@ -1087,6 +1627,69 @@ function applyTheme() {
   elements.toggleTheme.title = isLight ? "Passa al tema scuro" : "Passa al tema chiaro";
   elements.toggleTheme.setAttribute("aria-label", elements.toggleTheme.title);
   elements.toggleTheme.setAttribute("aria-pressed", String(isLight));
+}
+
+function applyAuthState() {
+  const currentUser = getCurrentUser();
+  const isAuthenticated = Boolean(currentUser);
+  elements.appShell.classList.toggle("is-auth-locked", !isAuthenticated);
+  elements.appShell.setAttribute("aria-hidden", String(!isAuthenticated));
+  elements.toggleLeftSidebar.hidden = !isAuthenticated;
+  elements.loginDialog.hidden = isAuthenticated;
+  elements.sessionUser.textContent = currentUser
+    ? `${currentUser.name} · ${getAccessLevelLabel(currentUser.level)}`
+    : "Accesso";
+
+  if (isAuthenticated) {
+    loginFocusQueued = false;
+    return;
+  }
+
+  if (!loginFocusQueued) {
+    loginFocusQueued = true;
+    window.requestAnimationFrame(() => elements.loginName.focus());
+  }
+}
+
+function handleLogin(event) {
+  event.preventDefault();
+  const name = elements.loginName.value.trim();
+  const password = elements.loginPassword.value;
+  const member = state.members.find((item) => item.name.toLowerCase() === name.toLowerCase());
+
+  if (!member || member.password !== password) {
+    elements.loginError.hidden = false;
+    elements.loginPassword.select();
+    return;
+  }
+
+  auth.currentUserId = member.id;
+  state.activeMemberId = member.id;
+  elements.loginError.hidden = true;
+  elements.loginPassword.value = "";
+  closeGoalPopup();
+  closeUserManagement();
+  render();
+}
+
+function logoutUser() {
+  auth.currentUserId = null;
+  closeGoalPopup();
+  closeUserManagement();
+  elements.loginPassword.value = "";
+  render();
+}
+
+function openUserManagement() {
+  if (!getCurrentUser()) return;
+  elements.userManagementDialog.hidden = false;
+  renderUserManagement();
+  window.requestAnimationFrame(() => elements.closeUserManagement.focus());
+}
+
+function closeUserManagement() {
+  elements.userManagementDialog.hidden = true;
+  showUserManagementError("");
 }
 
 function centerRoadmapStart() {
@@ -1853,10 +2456,19 @@ elements.confirmDelete.addEventListener("click", confirmRemoveMember);
 elements.confirmDialog.addEventListener("click", (event) => {
   if (event.target === elements.confirmDialog) closeConfirmDialog();
 });
+elements.loginForm.addEventListener("submit", handleLogin);
+elements.logoutUser.addEventListener("click", logoutUser);
+elements.openUserManagement.addEventListener("click", openUserManagement);
+elements.openUserManagementHeader.addEventListener("click", openUserManagement);
+elements.closeUserManagement.addEventListener("click", closeUserManagement);
+elements.userManagementDialog.addEventListener("click", (event) => {
+  if (event.target === elements.userManagementDialog) closeUserManagement();
+});
 elements.toggleLeftSidebar.addEventListener("click", () => toggleSidebar("left"));
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !elements.goalPopup.hidden) closeGoalPopup();
   if (event.key === "Escape" && !elements.confirmDialog.hidden) closeConfirmDialog();
+  if (event.key === "Escape" && !elements.userManagementDialog.hidden) closeUserManagement();
 });
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") persistState();
@@ -1871,6 +2483,10 @@ elements.memberName.addEventListener("keydown", (event) => {
 elements.memberRole.addEventListener("keydown", (event) => {
   if (event.key === "Enter") saveMember();
 });
+elements.memberPassword.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") saveMember();
+});
+elements.memberLevel.addEventListener("change", populateCreateUserManagerOptions);
 elements.goCurrentWeek.addEventListener("click", () => showTimelineView(true));
 elements.goRoadmap.addEventListener("click", showRoadmapView);
 elements.zoomTimelineOut.addEventListener("click", () => zoomTimeline(-1));

@@ -94,7 +94,7 @@ select {
   color-scheme: light;
 }
 
-:root[data-theme="light"] html,
+:root[data-theme="light"],
 :root[data-theme="light"] body {
   scrollbar-color: rgba(28, 44, 36, 0.32) var(--black);
 }
@@ -108,6 +108,12 @@ button {
   grid-template-columns: var(--sidebar) minmax(0, 1fr);
   min-height: 100vh;
   transition: grid-template-columns 180ms ease;
+}
+
+.app-shell.is-auth-locked {
+  filter: blur(2px);
+  pointer-events: none;
+  user-select: none;
 }
 
 .app-shell.left-collapsed {
@@ -226,22 +232,37 @@ h2 {
 }
 
 .goal-popup,
-.confirm-dialog {
+.confirm-dialog,
+.auth-dialog,
+.management-dialog {
   position: fixed;
   inset: 0;
   z-index: 30;
   background: rgba(0, 0, 0, 0.08);
 }
 
-.confirm-dialog {
+.confirm-dialog,
+.auth-dialog,
+.management-dialog {
   display: grid;
   place-items: center;
   background: rgba(0, 0, 0, 0.48);
 }
 
 .goal-popup[hidden],
-.confirm-dialog[hidden] {
+.confirm-dialog[hidden],
+.auth-dialog[hidden],
+.management-dialog[hidden] {
   display: none;
+}
+
+.auth-dialog {
+  z-index: 50;
+}
+
+.management-dialog {
+  z-index: 42;
+  padding: 22px;
 }
 
 .goal-popup-panel {
@@ -266,6 +287,98 @@ h2 {
 .confirm-panel {
   width: min(360px, calc(100vw - 40px));
   background: rgba(15, 22, 19, 0.98);
+}
+
+.auth-panel {
+  width: min(420px, calc(100vw - 40px));
+  background: rgba(15, 22, 19, 0.98);
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+}
+
+.management-panel {
+  width: min(980px, calc(100vw - 44px));
+  max-height: min(86vh, 820px);
+  overflow: auto;
+  background: rgba(15, 22, 19, 0.98);
+}
+
+.user-management-list {
+  display: grid;
+  gap: 12px;
+}
+
+.user-card {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(216, 221, 213, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.user-card.is-current {
+  border-color: rgba(82, 205, 160, 0.42);
+  background: rgba(40, 115, 95, 0.12);
+}
+
+.user-card-header,
+.user-card-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.user-card-header {
+  justify-content: space-between;
+}
+
+.user-card-identity span:last-child {
+  min-width: 0;
+}
+
+.user-card-identity strong,
+.user-card-identity small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-card-identity small {
+  color: rgba(248, 250, 247, 0.58);
+  font-size: 0.76rem;
+}
+
+.user-card-fields,
+.user-form-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.create-user-panel {
+  display: grid;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.create-user-panel[hidden] {
+  display: none;
+}
+
+.form-error {
+  color: #ff9b76;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.form-error[hidden] {
+  display: none;
 }
 
 .confirm-panel p {
@@ -706,7 +819,8 @@ select option:checked {
 
 .timeline-controls {
   display: inline-grid;
-  grid-template-columns: auto auto auto auto;
+  grid-auto-columns: max-content;
+  grid-auto-flow: column;
   align-items: center;
   gap: 6px;
   justify-content: end;
@@ -791,6 +905,17 @@ select option:checked {
   color: rgba(248, 250, 247, 0.54);
   font-size: 0.74rem;
   font-weight: 750;
+  white-space: nowrap;
+}
+
+.session-user {
+  max-width: 210px;
+  overflow: hidden;
+  padding: 0 8px;
+  color: rgba(248, 250, 247, 0.68);
+  font-size: 0.74rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1390,6 +1515,9 @@ select option:checked {
 :root[data-theme="light"] .goal-title-input,
 :root[data-theme="light"] .criterion-editor input,
 :root[data-theme="light"] .criterion-editor select,
+:root[data-theme="light"] .auth-panel,
+:root[data-theme="light"] .management-panel,
+:root[data-theme="light"] .user-card,
 :root[data-theme="light"] .secondary-action,
 :root[data-theme="light"] .icon-button,
 :root[data-theme="light"] .remove-goal,
@@ -1403,6 +1531,7 @@ select option:checked {
 :root[data-theme="light"] .roadmap-button,
 :root[data-theme="light"] .sidebar-toggle,
 :root[data-theme="light"] .workspace-header h2,
+:root[data-theme="light"] .user-card-identity strong,
 :root[data-theme="light"] .goal-label strong,
 :root[data-theme="light"] .goal-label-input,
 :root[data-theme="light"] .roadmap-header h2,
@@ -1420,6 +1549,16 @@ select option:checked {
   background: rgba(255, 255, 255, 0.72);
 }
 
+:root[data-theme="light"] .panel,
+:root[data-theme="light"] .auth-panel,
+:root[data-theme="light"] .management-panel {
+  background: rgba(255, 255, 255, 0.94);
+}
+
+:root[data-theme="light"] .user-card {
+  background: rgba(28, 44, 36, 0.04);
+}
+
 :root[data-theme="light"] .scale-button.active,
 :root[data-theme="light"] .current-week-button.active,
 :root[data-theme="light"] .roadmap-button.active {
@@ -1433,6 +1572,8 @@ select option:checked {
 :root[data-theme="light"] .timeline-zoom-label,
 :root[data-theme="light"] .timeline-year,
 :root[data-theme="light"] .save-status,
+:root[data-theme="light"] .session-user,
+:root[data-theme="light"] .user-card-identity small,
 :root[data-theme="light"] .roadmap-member,
 :root[data-theme="light"] .time-marker,
 :root[data-theme="light"] .time-marker small,
@@ -1470,6 +1611,11 @@ select option:checked {
   .timeline-controls {
     width: 100%;
     min-width: 0;
+  }
+
+  .user-card-fields,
+  .user-form-grid {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
   }
 }
 
@@ -1515,9 +1661,20 @@ select option:checked {
     height: 68vh;
   }
 
+  .timeline-controls {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(2, minmax(0, auto));
+    justify-content: start;
+  }
+
 }
 
 @media (max-width: 480px) {
+  .user-card-fields,
+  .user-form-grid {
+    grid-template-columns: 1fr;
+  }
+
   .goal-row {
     grid-template-columns: var(--row-label-width, 170px) minmax(0, 1fr);
   }
