@@ -2,7 +2,7 @@ const STORAGE_KEY = "team-improvement-plan";
 const STORAGE_VERSION = 3;
 const CLOUD_SAVE_DEBOUNCE_MS = 900;
 const ROW_HEIGHT = 92;
-const LABEL_WIDTH = 170;
+const LABEL_WIDTH = 200;
 const MIN_WEEK_WIDTH = 72;
 const DEFAULT_TIMELINE_YEAR = getCurrentTimelineYear();
 const DEFAULT_TIMELINE_WEEKS = getISOWeeksInYear(DEFAULT_TIMELINE_YEAR);
@@ -11,6 +11,10 @@ const LOCK_ICON_URL = "padlock.png";
 const UNLOCK_ICON_URL = "open-padlock.png";
 const SVG_NS = "http://www.w3.org/2000/svg";
 const ROADMAP_COLORS = ["#28f879", "#ffd21a", "#ff1630", "#36a8ff", "#ff7a2f", "#c47cff", "#2de2d1", "#f052b8"];
+const ROADMAP_BLOCKED_COLOR = "#8f9a94";
+const ROADMAP_ZOOM_MIN = 0.6;
+const ROADMAP_ZOOM_MAX = 1.8;
+const ROADMAP_ZOOM_STEP = 1.1;
 const WORKSPACE_VIEW_TIMELINE = "timeline";
 const WORKSPACE_VIEW_ROADMAP = "roadmap";
 const THEME_DARK = "dark";
@@ -38,7 +42,8 @@ const ACCESS_LEVEL_LABELS = {
   [ACCESS_SENIOR]: "Senior",
   [ACCESS_TEAM_LEADER]: "Team leader",
 };
-const MIGRATED_USER_PASSWORD = "password";
+const DEFAULT_USER_PASSWORD = "123";
+const LEGACY_USER_PASSWORDS = new Set(["password"]);
 const REQUIRED_USERS = [
   {
     id: "ruggero-fermariello",
@@ -158,6 +163,7 @@ const elements = {
   workspace: document.querySelector(".workspace"),
   toggleLeftSidebar: document.querySelector("#toggleLeftSidebar"),
   memberSelect: document.querySelector("#memberSelect"),
+  memberSearchOptions: document.querySelector("#memberSearchOptions"),
   memberName: document.querySelector("#memberName"),
   memberRole: document.querySelector("#memberRole"),
   memberPassword: document.querySelector("#memberPassword"),
@@ -189,6 +195,7 @@ const elements = {
   timelineZoomLabel: document.querySelector("#timelineZoomLabel"),
   timelineYear: document.querySelector("#timelineYear"),
   toggleTheme: document.querySelector("#toggleTheme"),
+  themeIcon: document.querySelector("#themeIcon"),
   openUserManagement: document.querySelector("#openUserManagement"),
   openUserManagementHeader: document.querySelector("#openUserManagementHeader"),
   closeUserManagement: document.querySelector("#closeUserManagement"),
@@ -272,6 +279,7 @@ function normalizeState(source) {
       leftCollapsed: Boolean(source?.ui?.leftCollapsed),
       activeView: source?.ui?.activeView === WORKSPACE_VIEW_ROADMAP ? WORKSPACE_VIEW_ROADMAP : WORKSPACE_VIEW_TIMELINE,
       timelineZoom: TIMELINE_ZOOM_LEVELS.includes(source?.ui?.timelineZoom) ? source.ui.timelineZoom : TIMELINE_ZOOM_WEEK,
+      roadmapZoom: normalizeRoadmapZoom(source?.ui?.roadmapZoom),
       theme: source?.ui?.theme === THEME_LIGHT ? THEME_LIGHT : THEME_DARK,
     },
     members: Array.isArray(source?.members) && source.members.length ? source.members : fallback.members,
@@ -283,7 +291,7 @@ function normalizeState(source) {
     role: member.role || "",
     level: normalizeAccessLevel(member.level ?? inferAccessLevel(member, memberIndex)),
     managerId: member.managerId || "",
-    password: String(member.password || MIGRATED_USER_PASSWORD),
+    password: normalizeUserPassword(member.password),
     goals: Array.isArray(member.goals)
       ? member.goals.map((goal) => normalizeGoal(goal, normalized.timelineWeeks, legacyMonths, timelineMigration))
       : [],
@@ -334,6 +342,15 @@ function normalizeUserName(name) {
 function normalizeAccessLevel(value) {
   const level = Math.round(Number(value));
   return ACCESS_LEVELS.includes(level) ? level : ACCESS_JUNIOR;
+}
+
+function normalizeUserPassword(value) {
+  const password = String(value || "").trim();
+  return password && !LEGACY_USER_PASSWORDS.has(password) ? password : DEFAULT_USER_PASSWORD;
+}
+
+function normalizeRoadmapZoom(value) {
+  return clamp(Number(value) || 1, ROADMAP_ZOOM_MIN, ROADMAP_ZOOM_MAX);
 }
 
 function inferAccessLevel(member, memberIndex) {
@@ -792,25 +809,27 @@ function render() {
 }
 
 function renderMemberSelect(activeMember) {
-  elements.memberSelect.innerHTML = "";
   const visibleMembers = getVisibleMembers();
+  elements.memberCount.textContent = visibleMembers.length;
+  if (!elements.memberSelect || !elements.memberSearchOptions) return;
+
+  elements.memberSearchOptions.innerHTML = "";
 
   visibleMembers.forEach((member) => {
     const option = document.createElement("option");
-    option.value = member.id;
-    option.textContent = member.name;
-    option.selected = member.id === activeMember?.id;
-    elements.memberSelect.append(option);
+    option.value = member.name;
+    option.label = getMemberSubtitle(member);
+    option.dataset.memberId = member.id;
+    elements.memberSearchOptions.append(option);
   });
 
-  elements.memberCount.textContent = visibleMembers.length;
+  elements.memberSelect.value = activeMember?.name ?? "";
   elements.memberSelect.disabled = visibleMembers.length === 0;
 }
 
 function renderMemberList(activeMember) {
   elements.memberList.innerHTML = "";
   const visibleMembers = getVisibleMembers();
-  const currentUser = getCurrentUser();
 
   if (!visibleMembers.length) {
     const empty = document.createElement("p");
@@ -836,16 +855,7 @@ function renderMemberList(activeMember) {
     `;
     selectButton.addEventListener("click", () => selectMember(member.id));
 
-    const removeButton = document.createElement("button");
-    removeButton.className = "remove-member";
-    removeButton.type = "button";
-    removeButton.title = `Cancella ${member.name}`;
-    removeButton.setAttribute("aria-label", `Cancella ${member.name}`);
-    removeButton.textContent = "x";
-    removeButton.addEventListener("click", () => requestRemoveMember(member.id));
-    removeButton.hidden = !currentUser || currentUser.id === member.id || !canManageMember(currentUser, member);
-
-    item.append(selectButton, removeButton);
+    item.append(selectButton);
     elements.memberList.append(item);
   });
 }
@@ -1119,6 +1129,7 @@ function renderTimeline(activeMember) {
 
   const axisGutter = document.createElement("div");
   axisGutter.className = "axis-gutter";
+  axisGutter.innerHTML = `<span>ID</span><span>Obiettivo</span>`;
   elements.timeAxis.append(axisGutter);
 
   timelineUnits.forEach((unit, index) => {
@@ -1137,7 +1148,7 @@ function renderTimeline(activeMember) {
     return;
   }
 
-  activeMember.goals.forEach((goal) => {
+  activeMember.goals.forEach((goal, goalIndex) => {
     clampGoal(goal);
     const row = document.createElement("section");
     row.className = "goal-row";
@@ -1149,6 +1160,13 @@ function renderTimeline(activeMember) {
 
     const label = document.createElement("div");
     label.className = "goal-label";
+    const idBadge = document.createElement("span");
+    idBadge.className = "goal-id-badge";
+    idBadge.textContent = String(goalIndex + 1).padStart(2, "0");
+    idBadge.title = `ID roadmap ${idBadge.textContent}`;
+    idBadge.setAttribute("aria-label", `ID roadmap ${idBadge.textContent}`);
+    idBadge.style.setProperty("--roadmap-color", getRoadmapColor(goalIndex));
+
     const labelInput = document.createElement("input");
     labelInput.className = "goal-label-input";
     labelInput.type = "text";
@@ -1157,7 +1175,7 @@ function renderTimeline(activeMember) {
     labelInput.addEventListener("click", (event) => event.stopPropagation());
     labelInput.addEventListener("dragstart", (event) => event.preventDefault());
     labelInput.addEventListener("input", (event) => updateGoalTitle(goal.id, event.target.value));
-    label.append(labelInput);
+    label.append(idBadge, labelInput);
 
     const track = document.createElement("div");
     track.className = "goal-track";
@@ -1197,6 +1215,8 @@ function createCriterionMarker(goalId, criterion) {
   marker.type = "button";
   marker.draggable = true;
   marker.title = criterion.label;
+  marker.dataset.goalId = goalId;
+  marker.dataset.criterionId = criterion.id;
   marker.style.left = `${criterion.position}%`;
   marker.setAttribute("aria-label", `${criterion.label}, ${criteriaStatusLabels[criterion.status]}`);
   marker.innerHTML = `<img class="criterion-icon" src="${getCriterionIconUrl(criterion.status)}" alt="" aria-hidden="true" />`;
@@ -1204,6 +1224,7 @@ function createCriterionMarker(goalId, criterion) {
     event.stopPropagation();
     startDrag(event, { kind: "move-criterion", goalId, criterionId: criterion.id });
   });
+  marker.addEventListener("pointerenter", hideTimelineHoverLine);
   marker.addEventListener("click", (event) => {
     event.stopPropagation();
     focusCriterionEditor(goalId, criterion.id, marker);
@@ -1331,6 +1352,26 @@ function selectMember(memberId) {
   state.activeMemberId = memberId;
   closeGoalPopup();
   render();
+}
+
+function selectMemberFromSearch(value) {
+  const query = normalizeUserName(value);
+  if (!query) {
+    renderMemberSelect(getActiveMember());
+    return;
+  }
+
+  const visibleMembers = getVisibleMembers();
+  const match =
+    visibleMembers.find((member) => normalizeUserName(member.name) === query) ??
+    visibleMembers.find((member) => normalizeUserName(member.name).includes(query));
+
+  if (!match) {
+    renderMemberSelect(getActiveMember());
+    return;
+  }
+
+  selectMember(match.id);
 }
 
 function requestRemoveMember(memberId) {
@@ -1498,9 +1539,9 @@ function scrollToCurrentWeek(behavior = "smooth") {
   if (currentUnitIndex < 0) return;
 
   const maxScrollLeft = Math.max(0, elements.timelineFrame.scrollWidth - elements.timelineFrame.clientWidth);
-  const trackWidth = Math.max(MIN_WEEK_WIDTH, elements.timelineFrame.scrollWidth - LABEL_WIDTH);
+  const { labelWidth, trackWidth } = getTimelineTrackMetrics();
   const weekWidth = trackWidth / timelineUnits.length;
-  const visibleTrackWidth = Math.max(0, elements.timelineFrame.clientWidth - LABEL_WIDTH);
+  const visibleTrackWidth = Math.max(0, elements.timelineFrame.clientWidth - labelWidth);
   const targetLeft = clamp(currentUnitIndex * weekWidth - (visibleTrackWidth - weekWidth) / 2, 0, maxScrollLeft);
 
   elements.timelineFrame.scrollTo({ left: targetLeft, behavior });
@@ -1604,6 +1645,49 @@ function showRoadmapView() {
   window.requestAnimationFrame(centerRoadmapStart);
 }
 
+function goToTimelineTarget(goalId, criterionId = null) {
+  if (!findGoal(goalId)) return;
+
+  state.ui.activeView = WORKSPACE_VIEW_TIMELINE;
+  applyWorkspaceView();
+  renderTimeline(getActiveMember());
+  persistState();
+
+  window.requestAnimationFrame(() => revealTimelineTarget(goalId, criterionId));
+}
+
+function revealTimelineTarget(goalId, criterionId = null) {
+  const row = [...elements.planGrid.querySelectorAll(".goal-row")].find((item) => item.dataset.goalId === goalId);
+  if (!row) return;
+
+  const target = criterionId
+    ? [...row.querySelectorAll(".criterion-circle")].find((item) => item.dataset.criterionId === criterionId)
+    : row;
+  if (!target) return;
+
+  const frameRect = elements.timelineFrame.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const nextScrollLeft =
+    elements.timelineFrame.scrollLeft +
+    targetRect.left +
+    targetRect.width / 2 -
+    (frameRect.left + elements.timelineFrame.clientWidth / 2);
+  const nextScrollTop =
+    elements.timelineFrame.scrollTop +
+    row.getBoundingClientRect().top +
+    row.offsetHeight / 2 -
+    (frameRect.top + elements.timelineFrame.clientHeight / 2);
+
+  elements.timelineFrame.scrollTo({
+    left: Math.max(0, nextScrollLeft),
+    top: Math.max(0, nextScrollTop),
+    behavior: "smooth",
+  });
+
+  target.classList.add("is-jump-highlight");
+  window.setTimeout(() => target.classList.remove("is-jump-highlight"), 1200);
+}
+
 function applyWorkspaceView() {
   const isRoadmap = state.ui.activeView === WORKSPACE_VIEW_ROADMAP;
   elements.workspace.classList.toggle("is-roadmap-view", isRoadmap);
@@ -1623,10 +1707,10 @@ function toggleTheme() {
 function applyTheme() {
   const isLight = state.ui.theme === THEME_LIGHT;
   document.documentElement.dataset.theme = isLight ? THEME_LIGHT : THEME_DARK;
-  elements.toggleTheme.textContent = isLight ? "Tema scuro" : "Tema chiaro";
   elements.toggleTheme.title = isLight ? "Passa al tema scuro" : "Passa al tema chiaro";
   elements.toggleTheme.setAttribute("aria-label", elements.toggleTheme.title);
   elements.toggleTheme.setAttribute("aria-pressed", String(isLight));
+  elements.themeIcon.src = isLight ? "dark theme.png" : "light theme.png";
 }
 
 function applyAuthState() {
@@ -1654,8 +1738,8 @@ function applyAuthState() {
 function handleLogin(event) {
   event.preventDefault();
   const name = elements.loginName.value.trim();
-  const password = elements.loginPassword.value;
-  const member = state.members.find((item) => item.name.toLowerCase() === name.toLowerCase());
+  const password = elements.loginPassword.value.trim();
+  const member = findLoginMember(name);
 
   if (!member || member.password !== password) {
     elements.loginError.hidden = false;
@@ -1670,6 +1754,17 @@ function handleLogin(event) {
   closeGoalPopup();
   closeUserManagement();
   render();
+}
+
+function findLoginMember(name) {
+  const normalizedName = normalizeUserName(name);
+  if (!normalizedName) return null;
+
+  return (
+    state.members.find((member) => normalizeUserName(member.name) === normalizedName) ||
+    state.members.find((member) => normalizeUserName(member.name).startsWith(normalizedName)) ||
+    null
+  );
 }
 
 function logoutUser() {
@@ -1693,11 +1788,11 @@ function closeUserManagement() {
 }
 
 function centerRoadmapStart() {
-  elements.roadmapCanvas.scrollTop = 0;
+  elements.roadmapCanvas.scrollTop = Math.max(0, elements.roadmapCanvas.scrollHeight - elements.roadmapCanvas.clientHeight);
   elements.roadmapCanvas.scrollLeft = Math.max(0, (elements.roadmapCanvas.scrollWidth - elements.roadmapCanvas.clientWidth) / 2);
 }
 
-function renderRoadmap(activeMember) {
+function renderRoadmap(activeMember, options = {}) {
   elements.roadmapCanvas.innerHTML = "";
   elements.roadmapMember.textContent = activeMember
     ? `${activeMember.name} - ${activeMember.goals.length} obiettivi`
@@ -1713,18 +1808,24 @@ function renderRoadmap(activeMember) {
 
   const goals = activeMember.goals;
   const maxCriteria = Math.max(1, ...goals.map((goal) => goal.criteria.length));
-  const width = Math.max(1080, 300 + goals.length * 270, 760 + maxCriteria * 120);
-  const height = Math.max(720, 600 + maxCriteria * 28);
+  const roadmapZoom = normalizeRoadmapZoom(state.ui.roadmapZoom);
+  const width = Math.max(1500, 420 + goals.length * 220, 720 + maxCriteria * 92);
+  const height = Math.max(820, 650 + maxCriteria * 34, 620 + goals.length * 28);
   const rootX = Math.round(width / 2);
-  const rootY = height + 150;
-  const goalY = 104;
-  const branchStartY = height - 28;
-  const edgePadding = 170;
+  const rootY = height - 58;
+  const minBranchLength = Math.min(300, height - 320);
+  const maxBranchLength = Math.max(minBranchLength + 140, height - 300);
 
   const map = document.createElement("div");
   map.className = "roadmap-map";
-  map.style.width = `${width}px`;
-  map.style.height = `${height}px`;
+  map.style.width = `${Math.round(width * roadmapZoom)}px`;
+  map.style.height = `${Math.round(height * roadmapZoom)}px`;
+
+  const surface = document.createElement("div");
+  surface.className = "roadmap-surface";
+  surface.style.width = `${width}px`;
+  surface.style.height = `${height}px`;
+  surface.style.transform = `scale(${roadmapZoom})`;
 
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.classList.add("roadmap-lines");
@@ -1732,34 +1833,44 @@ function renderRoadmap(activeMember) {
   svg.setAttribute("aria-hidden", "true");
 
   goals.forEach((goal, goalIndex) => {
-    const endX = getRoadmapGoalX(goalIndex, goals.length, width, edgePadding);
+    const startX = getRoadmapStartX(goalIndex, goals.length, rootX);
+    const branch = getRoadmapBranchShape(goal, goalIndex, goals.length, startX, rootY, minBranchLength, maxBranchLength);
     const color = getRoadmapColor(goalIndex);
-    const path = getRoadmapBranchPath(rootX, rootY, endX, goalY);
+    const progressRatio = getRoadmapProgressRatio(goal);
+    const fullPath = getRoadmapBranchPath(branch);
+    const forkPath = getRoadmapForkPath(branch);
+    const verticalPath = getRoadmapVerticalPath(branch);
+    const progressPath = getRoadmapProgressPath(branch, progressRatio);
 
-    appendRoadmapPath(svg, path, color, "roadmap-branch-shadow");
-    appendRoadmapPath(svg, path, color, "roadmap-branch-path");
+    appendRoadmapPath(svg, fullPath, ROADMAP_BLOCKED_COLOR, "roadmap-branch-shadow");
+    appendRoadmapPath(svg, verticalPath, ROADMAP_BLOCKED_COLOR, "roadmap-branch-muted");
+    appendRoadmapPath(svg, forkPath, color, "roadmap-branch-fork");
+    if (progressRatio > 0) {
+      appendRoadmapPath(svg, progressPath, color, "roadmap-branch-path");
+    }
   });
 
-  map.append(svg);
+  surface.append(svg);
 
   goals.forEach((goal, goalIndex) => {
-    const endX = getRoadmapGoalX(goalIndex, goals.length, width, edgePadding);
+    const startX = getRoadmapStartX(goalIndex, goals.length, rootX);
+    const branch = getRoadmapBranchShape(goal, goalIndex, goals.length, startX, rootY, minBranchLength, maxBranchLength);
     const color = getRoadmapColor(goalIndex);
     const criteria = [...goal.criteria].sort((first, second) => first.position - second.position);
-    const visibleStartRatio = getRoadmapVisibleStartRatio(rootY, branchStartY, goalY);
 
     criteria.forEach((criterion) => {
       const timeRatio = clamp(Number(criterion.position) / 100, 0, 1);
-      const branchRatio = visibleStartRatio + timeRatio * (1 - visibleStartRatio);
-      const point = getRoadmapBranchPoint(rootX, rootY, endX, goalY, branchRatio);
-      appendRoadmapCriterion(map, criterion, point.x, point.y, color);
+      const point = getRoadmapBranchPoint(branch, timeRatio);
+      const criterionColor = criterion.position <= goal.progress && criterion.status === "unlocked" ? color : ROADMAP_BLOCKED_COLOR;
+      appendRoadmapCriterion(surface, goal, criterion, point.x, point.y, criterionColor);
     });
 
-    appendRoadmapGoal(map, goal, goalIndex, endX, goalY, color);
+    appendRoadmapGoal(surface, goal, goalIndex, branch.endX, branch.endY, color);
   });
 
+  map.append(surface);
   elements.roadmapCanvas.append(map);
-  if (state.ui.activeView === WORKSPACE_VIEW_ROADMAP) {
+  if (state.ui.activeView === WORKSPACE_VIEW_ROADMAP && options.center !== false) {
     centerRoadmapStart();
   }
 }
@@ -1768,28 +1879,81 @@ function getRoadmapColor(index) {
   return ROADMAP_COLORS[index] || `hsl(${(index * 47 + 18) % 360} 88% 58%)`;
 }
 
-function getRoadmapGoalX(index, totalGoals, width, edgePadding) {
-  if (totalGoals === 1) return Math.round(width / 2);
-
-  return Math.round(edgePadding + (index / (totalGoals - 1)) * (width - edgePadding * 2));
+function getRoadmapStartX(index, totalGoals, rootX) {
+  const branchDistance = getRoadmapBranchDistance(totalGoals);
+  return Math.round(rootX + (index - (totalGoals - 1) / 2) * branchDistance);
 }
 
-function getRoadmapBranchPath(rootX, rootY, endX, endY) {
-  return `M ${rootX} ${rootY} L ${endX} ${endY}`;
-}
-
-function getRoadmapBranchPoint(rootX, rootY, endX, endY, ratio) {
-  const start = { x: rootX, y: rootY };
-  const end = { x: endX, y: endY };
+function getRoadmapBranchShape(goal, index, totalGoals, startX, rootY, minBranchLength, maxBranchLength) {
+  const branchLength = getRoadmapBranchLength(goal, minBranchLength, maxBranchLength);
+  const radians = (getRoadmapBranchAngle(index, totalGoals) * Math.PI) / 180;
+  const firstStemLength = 44;
+  const stemStartY = rootY - 142;
+  const forkRise = Math.max(1, (rootY + 28 - firstStemLength) - stemStartY);
+  const laneOffset = Math.sin(radians) * forkRise * 1.7;
+  const laneX = Math.round(startX + laneOffset);
+  const visualStartY = rootY + 28;
+  const forkY = visualStartY - firstStemLength;
 
   return {
-    x: start.x + (end.x - start.x) * ratio,
-    y: start.y + (end.y - start.y) * ratio,
+    startX,
+    startY: visualStartY,
+    forkX: startX,
+    forkY,
+    bendX: laneX,
+    bendY: stemStartY,
+    endX: laneX,
+    endY: Math.round(stemStartY - branchLength),
   };
 }
 
-function getRoadmapVisibleStartRatio(rootY, branchStartY, endY) {
-  return clamp((rootY - branchStartY) / Math.max(1, rootY - endY), 0, 1);
+function getRoadmapBranchLength(goal, minBranchLength, maxBranchLength) {
+  const deadlineRatio = clamp(getGoalEndGridLine(goal) / state.timelineWeeks, 0, 1);
+  const branchLength = minBranchLength + deadlineRatio * (maxBranchLength - minBranchLength);
+  return Math.round(branchLength);
+}
+
+function getRoadmapBranchAngle(index, totalGoals) {
+  if (totalGoals <= 1) return 0;
+
+  return (index - (totalGoals - 1) / 2) * getRoadmapBranchDistance(totalGoals);
+}
+
+function getRoadmapBranchDistance(totalGoals) {
+  return 180 / Math.max(1, totalGoals);
+}
+
+function getRoadmapProgressRatio(goal) {
+  return clamp(Number(goal.progress) / 100, 0, 1);
+}
+
+function getRoadmapBranchPath(branch) {
+  return `M ${branch.startX} ${branch.startY} L ${branch.forkX} ${branch.forkY} L ${branch.bendX} ${branch.bendY} L ${branch.endX} ${branch.endY}`;
+}
+
+function getRoadmapForkPath(branch) {
+  return `M ${branch.startX} ${branch.startY} L ${branch.forkX} ${branch.forkY} L ${branch.bendX} ${branch.bendY}`;
+}
+
+function getRoadmapVerticalPath(branch) {
+  return `M ${branch.bendX} ${branch.bendY} L ${branch.endX} ${branch.endY}`;
+}
+
+function getRoadmapProgressPath(branch, ratio) {
+  const point = getRoadmapBranchPoint(branch, ratio);
+  return `M ${branch.bendX} ${branch.bendY} L ${point.x} ${point.y}`;
+}
+
+function getRoadmapBranchPoint(branch, ratio) {
+  const clampedRatio = clamp(ratio, 0, 1);
+  return interpolatePoint(branch.bendX, branch.bendY, branch.endX, branch.endY, clampedRatio);
+}
+
+function interpolatePoint(startX, startY, endX, endY, ratio) {
+  return {
+    x: startX + (endX - startX) * ratio,
+    y: startY + (endY - startY) * ratio,
+  };
 }
 
 function appendRoadmapPath(svg, path, color, className) {
@@ -1800,12 +1964,17 @@ function appendRoadmapPath(svg, path, color, className) {
   svg.append(branch);
 }
 
-function appendRoadmapCriterion(map, criterion, x, y, color) {
-  const node = document.createElement("div");
+function appendRoadmapCriterion(map, goal, criterion, x, y, color) {
+  const node = document.createElement("button");
   node.className = `roadmap-criterion-node${criterion.status === "unlocked" ? " is-unlocked" : ""}`;
+  node.type = "button";
   node.style.left = `${x}px`;
   node.style.top = `${y}px`;
   node.style.setProperty("--branch-color", color);
+  node.dataset.goalId = goal.id;
+  node.dataset.criterionId = criterion.id;
+  node.dataset.tooltip = criterion.label || "Criterio di avanzamento";
+  node.title = criterion.label || "Criterio di avanzamento";
 
   const orb = document.createElement("span");
   orb.className = "roadmap-node-orb";
@@ -1815,32 +1984,44 @@ function appendRoadmapCriterion(map, criterion, x, y, color) {
   icon.alt = "";
   icon.setAttribute("aria-hidden", "true");
 
-  const caption = document.createElement("span");
-  caption.className = "roadmap-criterion-caption";
-  caption.textContent = criterion.label || "Criterio di avanzamento";
-
+  node.setAttribute("aria-label", criterion.label || "Criterio di avanzamento");
+  node.addEventListener("pointerdown", stopRoadmapNodeEvent);
+  node.addEventListener("click", (event) => {
+    event.stopPropagation();
+    goToTimelineTarget(goal.id, criterion.id);
+  });
   orb.append(icon);
-  node.append(orb, caption);
+  node.append(orb);
   map.append(node);
 }
 
 function appendRoadmapGoal(map, goal, goalIndex, x, y, color) {
-  const node = document.createElement("div");
+  const node = document.createElement("button");
   node.className = "roadmap-goal-node";
+  node.type = "button";
   node.style.left = `${x}px`;
   node.style.top = `${y}px`;
   node.style.setProperty("--branch-color", color);
+  node.dataset.goalId = goal.id;
+  node.dataset.tooltip = goal.title || "Obiettivo";
+  node.title = goal.title || "Obiettivo";
 
   const orb = document.createElement("span");
   orb.className = "roadmap-goal-orb";
   orb.textContent = String(goalIndex + 1).padStart(2, "0");
 
-  const title = document.createElement("span");
-  title.className = "roadmap-goal-title";
-  title.textContent = goal.title || "Obiettivo";
-
-  node.append(orb, title);
+  node.setAttribute("aria-label", goal.title || "Obiettivo");
+  node.addEventListener("pointerdown", stopRoadmapNodeEvent);
+  node.addEventListener("click", (event) => {
+    event.stopPropagation();
+    goToTimelineTarget(goal.id);
+  });
+  node.append(orb);
   map.append(node);
+}
+
+function stopRoadmapNodeEvent(event) {
+  event.stopPropagation();
 }
 
 function toggleSidebar(side) {
@@ -1965,6 +2146,11 @@ function parseDragPayload(event) {
 }
 
 function handleTimelinePointerMove(event) {
+  if (event.target.closest(".criterion-circle")) {
+    hideTimelineHoverLine();
+    return;
+  }
+
   const pointerMeta = getTimelinePointerMeta(event);
   if (!isTimelineGoalRow(pointerMeta)) {
     hideTimelineHoverLine();
@@ -2070,6 +2256,7 @@ function handleGridDrop(event) {
 
 function handleRoadmapPointerDown(event) {
   if (event.button !== 0) return;
+  if (event.target.closest(".roadmap-criterion-node, .roadmap-goal-node")) return;
 
   roadmapPanState = {
     pointerId: event.pointerId,
@@ -2100,6 +2287,33 @@ function endRoadmapPan(event) {
   elements.roadmapCanvas.classList.remove("is-panning");
 }
 
+function handleRoadmapWheel(event) {
+  if (state.ui.activeView !== WORKSPACE_VIEW_ROADMAP) return;
+
+  event.preventDefault();
+  const currentZoom = normalizeRoadmapZoom(state.ui.roadmapZoom);
+  const nextZoom = normalizeRoadmapZoom(
+    currentZoom * (event.deltaY < 0 ? ROADMAP_ZOOM_STEP : 1 / ROADMAP_ZOOM_STEP),
+  );
+  if (nextZoom === currentZoom) return;
+
+  const rect = elements.roadmapCanvas.getBoundingClientRect();
+  const pointerX = event.clientX - rect.left;
+  const pointerY = event.clientY - rect.top;
+  const contentX = elements.roadmapCanvas.scrollLeft + pointerX;
+  const contentY = elements.roadmapCanvas.scrollTop + pointerY;
+  const zoomRatio = nextZoom / currentZoom;
+
+  state.ui.roadmapZoom = Number(nextZoom.toFixed(3));
+  renderRoadmap(getActiveMember(), { center: false });
+  persistState();
+
+  window.requestAnimationFrame(() => {
+    elements.roadmapCanvas.scrollLeft = contentX * zoomRatio - pointerX;
+    elements.roadmapCanvas.scrollTop = contentY * zoomRatio - pointerY;
+  });
+}
+
 function getDropMeta(event) {
   return getTimelinePointerMeta(event);
 }
@@ -2110,20 +2324,19 @@ function getTimelinePointerMeta(event) {
 
   const frameRect = elements.timelineFrame.getBoundingClientRect();
   const planRect = elements.planGrid.getBoundingClientRect();
-  const { timelineUnits, trackWidth } = getTimelineTrackMetrics();
+  const { labelWidth, timelineUnits, trackWidth } = getTimelineTrackMetrics();
   if (!timelineUnits.length) return null;
   const contentX = event.clientX - frameRect.left + elements.timelineFrame.scrollLeft;
-  const trackX = clamp(contentX - LABEL_WIDTH, 0, trackWidth);
-  const unitWidth = trackWidth / timelineUnits.length;
-  const unitLine = clamp(Math.round(trackX / unitWidth), 0, timelineUnits.length);
+  const unitMeta = getTimelineUnitLineMeta(contentX, timelineUnits, labelWidth, trackWidth);
+  const unitLine = unitMeta.unitLine;
   const gridLinePrecise = getGridLineFromTimelineUnitLine(unitLine);
   const gridLine = clamp(Math.round(gridLinePrecise), 0, state.timelineWeeks);
-  const contentLineLeft = LABEL_WIDTH + unitLine * unitWidth;
+  const contentLineLeft = unitMeta.contentLineLeft;
   const screenLineLeft = contentLineLeft - elements.timelineFrame.scrollLeft;
   const rowY = event.clientY - planRect.top;
   const rowIndex = Math.floor(rowY / ROW_HEIGHT);
 
-  if (screenLineLeft < LABEL_WIDTH || screenLineLeft > elements.timelineFrame.clientWidth) return null;
+  if (screenLineLeft < labelWidth || screenLineLeft > elements.timelineFrame.clientWidth) return null;
 
   return {
     gridLine,
@@ -2137,14 +2350,49 @@ function getTimelinePointerMeta(event) {
 
 function getTimelineTrackMetrics() {
   const timelineUnits = getTimelineUnits();
-  const contentWidth = Math.max(
-    elements.timeAxis.scrollWidth,
-    elements.planGrid.scrollWidth,
-    elements.timelineFrame.clientWidth,
-  );
-  const trackWidth = Math.max(MIN_WEEK_WIDTH, contentWidth - LABEL_WIDTH);
+  const labelWidth = getTimelineLabelWidth();
+  const contentWidth = Math.max(elements.timeAxis.scrollWidth, elements.planGrid.scrollWidth);
+  const trackWidth = Math.max(MIN_WEEK_WIDTH, contentWidth - labelWidth);
 
-  return { timelineUnits, trackWidth };
+  return { labelWidth, timelineUnits, trackWidth };
+}
+
+function getTimelineUnitLineMeta(contentX, timelineUnits, labelWidth, trackWidth) {
+  const markers = [...elements.timeAxis.querySelectorAll(".time-marker")];
+
+  if (markers.length === timelineUnits.length) {
+    const boundaries = markers.map((marker) => marker.offsetLeft);
+    const lastMarker = markers[markers.length - 1];
+    boundaries.push(lastMarker.offsetLeft + lastMarker.offsetWidth);
+
+    let unitLine = 0;
+    let closestDistance = Infinity;
+    boundaries.forEach((boundary, index) => {
+      const distance = Math.abs(contentX - boundary);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        unitLine = index;
+      }
+    });
+
+    return {
+      contentLineLeft: boundaries[unitLine],
+      unitLine: clamp(unitLine, 0, timelineUnits.length),
+    };
+  }
+
+  const trackX = clamp(contentX - labelWidth, 0, trackWidth);
+  const unitWidth = trackWidth / timelineUnits.length;
+  const unitLine = clamp(Math.round(trackX / unitWidth), 0, timelineUnits.length);
+
+  return {
+    contentLineLeft: labelWidth + unitLine * unitWidth,
+    unitLine,
+  };
+}
+
+function getTimelineLabelWidth() {
+  return elements.timeAxis.querySelector(".axis-gutter")?.offsetWidth || LABEL_WIDTH;
 }
 
 function addCriterionAtDrop(dropMeta) {
@@ -2442,9 +2690,17 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
-elements.memberSelect.addEventListener("change", (event) => {
-  selectMember(event.target.value);
-});
+if (elements.memberSelect) {
+  elements.memberSelect.addEventListener("change", (event) => {
+    selectMemberFromSearch(event.target.value);
+  });
+  elements.memberSelect.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      selectMemberFromSearch(event.target.value);
+    }
+  });
+}
 
 elements.saveMember.addEventListener("click", saveMember);
 elements.closeGoalPopup.addEventListener("click", closeGoalPopup);
@@ -2458,7 +2714,7 @@ elements.confirmDialog.addEventListener("click", (event) => {
 });
 elements.loginForm.addEventListener("submit", handleLogin);
 elements.logoutUser.addEventListener("click", logoutUser);
-elements.openUserManagement.addEventListener("click", openUserManagement);
+elements.openUserManagement?.addEventListener("click", openUserManagement);
 elements.openUserManagementHeader.addEventListener("click", openUserManagement);
 elements.closeUserManagement.addEventListener("click", closeUserManagement);
 elements.userManagementDialog.addEventListener("click", (event) => {
@@ -2516,6 +2772,7 @@ elements.roadmapCanvas.addEventListener("pointerdown", handleRoadmapPointerDown)
 elements.roadmapCanvas.addEventListener("pointermove", handleRoadmapPointerMove);
 elements.roadmapCanvas.addEventListener("pointerup", endRoadmapPan);
 elements.roadmapCanvas.addEventListener("pointercancel", endRoadmapPan);
+elements.roadmapCanvas.addEventListener("wheel", handleRoadmapWheel, { passive: false });
 
 render();
 initializeCloudSync();

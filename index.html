@@ -35,8 +35,17 @@
             </div>
           </div>
 
-          <label class="field-label" for="memberSelect">Seleziona</label>
-          <select id="memberSelect" class="field"></select>
+          <div class="sidebar-session">
+            <span id="sessionUser" class="session-user">Accesso</span>
+            <div class="sidebar-session-actions">
+              <button id="toggleTheme" class="theme-toggle icon-only-button" type="button" aria-label="Passa al tema chiaro" title="Passa al tema chiaro">
+                <img id="themeIcon" class="button-icon-img" src="light theme.png" alt="" aria-hidden="true" />
+              </button>
+              <button id="logoutUser" class="theme-toggle icon-only-button" type="button" aria-label="Esci" title="Esci">
+                <img class="button-icon-img" src="logout.png" alt="" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
         </section>
 
         <section class="panel add-member-panel">
@@ -44,9 +53,6 @@
             <h2>Utenti visibili</h2>
           </div>
           <div id="memberList" class="member-list" aria-label="Membri esistenti"></div>
-          <button id="openUserManagement" class="primary-action" type="button">
-            Gestione utenti
-          </button>
         </section>
 
       </aside>
@@ -54,7 +60,6 @@
       <section class="workspace" aria-label="Visualizzazione del piano">
         <header class="workspace-header">
           <div>
-            <p class="eyebrow">Roadmap individuale</p>
             <div class="workspace-title-row">
               <button id="goCurrentWeek" class="scale-button current-week-button" type="button">Week corrente</button>
               <button id="goRoadmap" class="scale-button roadmap-button" type="button">Roadmap</button>
@@ -67,12 +72,7 @@
               <button id="zoomTimelineIn" class="zoom-button" type="button" aria-label="Mostra giorni" title="Mostra giorni">+</button>
             </div>
             <span id="timelineYear" class="timeline-year">Anno</span>
-            <button id="toggleTheme" class="theme-toggle" type="button" aria-label="Passa al tema chiaro" title="Passa al tema chiaro">
-              Tema chiaro
-            </button>
             <button id="openUserManagementHeader" class="theme-toggle" type="button">Utenti</button>
-            <span id="sessionUser" class="session-user">Accesso</span>
-            <button id="logoutUser" class="theme-toggle" type="button">Esci</button>
             <span id="saveStatus" class="save-status" aria-live="polite">Salvataggio locale</span>
           </div>
         </header>
@@ -113,7 +113,7 @@
             <span class="field-label">Password</span>
             <input id="loginPassword" class="field" type="password" autocomplete="current-password" placeholder="Password" required />
           </label>
-          <p id="loginError" class="form-error" role="alert" hidden>Nome o password non corretti.</p>
+          <p id="loginError" class="form-error" role="alert" hidden>Nome o password non corretti. Per gli utenti esistenti usa la password 123.</p>
           <button id="loginSubmit" class="primary-action" type="submit">Entra</button>
         </form>
       </section>
@@ -212,5 +212,10 @@
 
     <script src="supabase-config.js"></script>
     <script src="app.js"></script>
+    <footer class="asset-credits" aria-label="Crediti icone">
+      <a href="https://www.flaticon.com/free-icons/theme" title="theme icons">Theme icons created by yoyonpujiono - Flaticon</a>
+      <a href="https://www.flaticon.com/free-icons/logout" title="logout icons">Logout icons created by Freepik - Flaticon</a>
+      <a href="https://www.flaticon.com/free-icons/dark-mode" title="dark mode icons">Dark mode icons created by Hazicon - Flaticon</a>
+    </footer>
   </body>
 </html>
