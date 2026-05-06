@@ -17,6 +17,8 @@ const ROADMAP_ZOOM_MAX = 1.8;
 const ROADMAP_ZOOM_STEP = 1.1;
 const WORKSPACE_VIEW_TIMELINE = "timeline";
 const WORKSPACE_VIEW_ROADMAP = "roadmap";
+const WORKSPACE_VIEW_SKILL_TREE = "skill-tree";
+const WORKSPACE_VIEWS = [WORKSPACE_VIEW_TIMELINE, WORKSPACE_VIEW_ROADMAP, WORKSPACE_VIEW_SKILL_TREE];
 const THEME_DARK = "dark";
 const THEME_LIGHT = "light";
 const TIMELINE_ZOOM_MONTH = "month";
@@ -58,6 +60,398 @@ const REQUIRED_USERS = [
 const criteriaStatusLabels = {
   locked: "Bloccato",
   unlocked: "Sbloccato",
+};
+
+const SKILL_TREE = {
+  title: "Skill permanenti",
+  summary: "Soft skill + hard skill PLC",
+  nodes: [
+    {
+      id: "skill-tree-root",
+      label: "Skill tree",
+      description: "Competenze permanenti acquisite.",
+      color: "#52cda0",
+    },
+    {
+      id: "soft-skill",
+      label: "Soft skill",
+      description: "Competenze trasversali per lavorare bene in team e sui problemi.",
+      parent: "skill-tree-root",
+      color: "#52cda0",
+    },
+    {
+      id: "hard-plc",
+      label: "Hard skill PLC",
+      description: "Competenze tecniche per programmare e mettere in servizio impianti PLC.",
+      parent: "skill-tree-root",
+      color: "#36a8ff",
+    },
+    {
+      id: "professionalita",
+      label: "Professionalita",
+      description: "Responsabilita, affidabilita e cura del modo di lavorare.",
+      parent: "soft-skill",
+      color: "#2de2d1",
+    },
+    {
+      id: "comunicazione",
+      label: "Comunicazione chiara",
+      description: "Spiegare problemi, decisioni e trade-off in modo comprensibile.",
+      parent: "soft-skill",
+      color: "#36a8ff",
+    },
+    {
+      id: "pensiero-critico",
+      label: "Pensiero critico",
+      description: "Analizzare il contesto prima di scegliere una soluzione.",
+      parent: "soft-skill",
+      color: "#ffd21a",
+    },
+    {
+      id: "apprendimento",
+      label: "Apprendimento continuo",
+      description: "Aggiornarsi, chiedere feedback e trasformarlo in crescita.",
+      parent: "soft-skill",
+      color: "#c47cff",
+    },
+    {
+      id: "etica",
+      label: "Etica e impatto",
+      description: "Valutare conseguenze, rischi e responsabilita del software.",
+      parent: "soft-skill",
+      color: "#ff7a2f",
+    },
+    {
+      id: "ascolto",
+      label: "Ascolto attivo",
+      description: "Capire esigenze, vincoli e segnali deboli prima di rispondere.",
+      parent: "comunicazione",
+      color: "#36a8ff",
+    },
+    {
+      id: "scrittura",
+      label: "Scrittura tecnica",
+      description: "Documentare decisioni, requisiti e passaggi operativi.",
+      parent: "comunicazione",
+      color: "#36a8ff",
+    },
+    {
+      id: "collaborazione",
+      label: "Collaborazione",
+      description: "Lavorare bene con persone, ruoli e priorita diverse.",
+      parent: "soft-skill",
+      color: "#28f879",
+    },
+    {
+      id: "feedback",
+      label: "Feedback e code review",
+      description: "Dare e ricevere feedback tecnico senza bloccare il team.",
+      parent: "collaborazione",
+      color: "#28f879",
+    },
+    {
+      id: "conflitto",
+      label: "Gestione conflitti",
+      description: "Portare attriti e divergenze verso decisioni utili.",
+      parent: "collaborazione",
+      color: "#28f879",
+    },
+    {
+      id: "remoto",
+      label: "Coordinamento remoto",
+      description: "Allinearsi in modo asincrono e rendere visibile il lavoro.",
+      parent: "collaborazione",
+      color: "#28f879",
+    },
+    {
+      id: "problem-framing",
+      label: "Problem framing",
+      description: "Definire il problema giusto prima di implementare.",
+      parent: "pensiero-critico",
+      color: "#ffd21a",
+    },
+    {
+      id: "priorita",
+      label: "Prioritizzazione",
+      description: "Separare urgenza, valore e rischio nelle decisioni quotidiane.",
+      parent: "pensiero-critico",
+      color: "#ffd21a",
+    },
+    {
+      id: "decisioni",
+      label: "Decisioni basate su dati",
+      description: "Usare evidenze, metriche e test per orientare le scelte.",
+      parent: "problem-framing",
+      color: "#ffd21a",
+    },
+    {
+      id: "adattabilita",
+      label: "Adattabilita",
+      description: "Cambiare approccio quando il contesto o la tecnologia cambia.",
+      parent: "apprendimento",
+      color: "#c47cff",
+    },
+    {
+      id: "resilienza",
+      label: "Resilienza al cambiamento",
+      description: "Reggere incertezza, incidenti e iterazioni senza perdere lucidita.",
+      parent: "apprendimento",
+      color: "#c47cff",
+    },
+    {
+      id: "autogestione",
+      label: "Autogestione",
+      description: "Gestire focus, tempo e promesse in autonomia.",
+      parent: "professionalita",
+      color: "#c47cff",
+    },
+    {
+      id: "inclusione",
+      label: "Inclusione stakeholder",
+      description: "Considerare utenti, team e contesti diversi nelle scelte tecniche.",
+      parent: "etica",
+      color: "#ff7a2f",
+    },
+    {
+      id: "fondamenti-plc",
+      label: "Fondamenti PLC",
+      description: "Ciclo di scansione, memoria, task e struttura base di un controllore.",
+      parent: "hard-plc",
+      color: "#36a8ff",
+    },
+    {
+      id: "impianto-elettrico",
+      label: "Lettura schemi",
+      description: "Leggere schemi elettrici, morsettiere, segnali e alimentazioni.",
+      parent: "fondamenti-plc",
+      color: "#2de2d1",
+    },
+    {
+      id: "io-segnali",
+      label: "I/O e segnali",
+      description: "Gestire ingressi, uscite, sensori, attuatori e segnali analogici.",
+      parent: "fondamenti-plc",
+      color: "#2de2d1",
+    },
+    {
+      id: "linguaggi-plc",
+      label: "IEC 61131-3",
+      description: "Conoscere Ladder, FBD, Structured Text e organizzazione dei programmi.",
+      parent: "hard-plc",
+      color: "#ffd21a",
+    },
+    {
+      id: "ladder-fbd",
+      label: "Ladder e FBD",
+      description: "Implementare logiche discrete leggibili per manutenzione e diagnostica.",
+      parent: "linguaggi-plc",
+      color: "#ffd21a",
+    },
+    {
+      id: "structured-text",
+      label: "Structured Text",
+      description: "Scrivere funzioni, calcoli, sequenze e logiche riusabili.",
+      parent: "linguaggi-plc",
+      color: "#ffd21a",
+    },
+    {
+      id: "modularita-plc",
+      label: "Blocchi riusabili",
+      description: "Progettare FB, FC e librerie ordinate per macchine simili.",
+      parent: "linguaggi-plc",
+      color: "#ffd21a",
+    },
+    {
+      id: "reti-industriali",
+      label: "Reti industriali",
+      description: "Configurare comunicazione tra PLC, I/O remoti, drive e supervisione.",
+      parent: "hard-plc",
+      color: "#c47cff",
+    },
+    {
+      id: "profinet-ethernetip",
+      label: "PROFINET / Ethernet/IP",
+      description: "Indirizzi, device, diagnostica rete e scambio dati ciclico.",
+      parent: "reti-industriali",
+      color: "#c47cff",
+    },
+    {
+      id: "modbus-opcua",
+      label: "Modbus / OPC UA",
+      description: "Integrare dati macchina con dispositivi, SCADA e sistemi esterni.",
+      parent: "reti-industriali",
+      color: "#c47cff",
+    },
+    {
+      id: "hmi-scada",
+      label: "HMI e SCADA",
+      description: "Creare pagine operatore, allarmi, trend, ricette e diagnostica.",
+      parent: "hard-plc",
+      color: "#ff7a2f",
+    },
+    {
+      id: "allarmi-ricette",
+      label: "Allarmi e ricette",
+      description: "Gestire stati macchina, messaggi operatore e parametri di processo.",
+      parent: "hmi-scada",
+      color: "#ff7a2f",
+    },
+    {
+      id: "azionamenti-motion",
+      label: "Drive e motion",
+      description: "Parametrizzare inverter, assi, homing, camme e profili di movimento.",
+      parent: "hard-plc",
+      color: "#f052b8",
+    },
+    {
+      id: "sicurezza-macchina",
+      label: "Safety PLC",
+      description: "Comprendere funzioni di sicurezza, interblocchi e logiche fail-safe.",
+      parent: "hard-plc",
+      color: "#ff1630",
+    },
+    {
+      id: "commissioning",
+      label: "Commissioning",
+      description: "Scaricare software, testare sequenze, validare I/O e avviare impianti.",
+      parent: "hard-plc",
+      color: "#28f879",
+    },
+    {
+      id: "debug-online",
+      label: "Debug online",
+      description: "Monitorare variabili, forzature controllate, trace e stati macchina.",
+      parent: "commissioning",
+      color: "#28f879",
+    },
+    {
+      id: "troubleshooting",
+      label: "Troubleshooting",
+      description: "Diagnosticare guasti combinando software, segnali, rete e processo.",
+      parent: "commissioning",
+      color: "#28f879",
+    },
+  ],
+};
+
+const SKILL_ICON_BY_ID = {
+  "skill-tree-root": "network",
+  "soft-skill": "people",
+  "hard-plc": "chip",
+  professionalita: "shield",
+  comunicazione: "message",
+  "pensiero-critico": "brain",
+  apprendimento: "book",
+  etica: "scale",
+  ascolto: "ear",
+  scrittura: "file",
+  collaborazione: "team",
+  feedback: "review",
+  conflitto: "balance",
+  remoto: "globe",
+  "problem-framing": "target",
+  priorita: "list",
+  decisioni: "chart",
+  adattabilita: "rotate",
+  resilienza: "mountain",
+  autogestione: "clock",
+  inclusione: "spark",
+  "fondamenti-plc": "cpu",
+  "impianto-elettrico": "schematic",
+  "io-segnali": "io",
+  "linguaggi-plc": "code",
+  "ladder-fbd": "ladder",
+  "structured-text": "braces",
+  "modularita-plc": "blocks",
+  "reti-industriali": "network",
+  "profinet-ethernetip": "ethernet",
+  "modbus-opcua": "database",
+  "hmi-scada": "monitor",
+  "allarmi-ricette": "bell",
+  "azionamenti-motion": "motion",
+  "sicurezza-macchina": "safety",
+  commissioning: "rocket",
+  "debug-online": "bug",
+  troubleshooting: "wrench",
+};
+
+const SKILL_ICON_SVG = {
+  network:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="7" r="2.2"/><circle cx="18" cy="7" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M8 8.5 11 16M16 8.5 13 16M8.3 7h7.4"/></svg>',
+  people:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3.5 19c.8-3.2 3-5 5.5-5s4.7 1.8 5.5 5M14.5 15c2.4.1 4.2 1.5 5 4"/></svg>',
+  chip:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3M10 12h4"/></svg>',
+  shield:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5c0 4.5-2.6 8-7 10-4.4-2-7-5.5-7-10V6l7-3Z"/><path d="m9 12 2 2 4-5"/></svg>',
+  message:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H9l-4 4V5Z"/><path d="M8 9h8M8 12h5"/></svg>',
+  brain:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5a4 4 0 0 0-4 4c-1.5.7-2 2-2 3.5A3.5 3.5 0 0 0 6.5 16H8v3M15 5a4 4 0 0 1 4 4c1.5.7 2 2 2 3.5a3.5 3.5 0 0 1-3.5 3.5H16v3M12 4v16M8 10h3M13 10h3M8 14h3M13 14h3"/></svg>',
+  book:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h6a3 3 0 0 1 3 3v13a3 3 0 0 0-3-3H5V4ZM19 4h-5a3 3 0 0 0-3 3"/><path d="M14 17h5V4"/></svg>',
+  scale:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v17M5 7h14M7 7l-4 7h8L7 7ZM17 7l-4 7h8l-4-7Z"/></svg>',
+  ear:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 9a5 5 0 0 1 10 0c0 5-5 5-5 9a3 3 0 0 1-5.8 1M9 9a3 3 0 0 1 6 0c0 2.4-2.5 3-3.2 4.7"/><path d="M4 10a8 8 0 0 1 2.2-5.5"/></svg>',
+  file:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v5h4M9 12h6M9 16h6"/></svg>',
+  team:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M3.5 19c.7-3 2.4-4.5 4.5-4.5s3.8 1.5 4.5 4.5M11.5 19c.7-3 2.4-4.5 4.5-4.5s3.8 1.5 4.5 4.5"/></svg>',
+  review:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5Z"/><path d="m8 11 2 2 5-5M16 13h1"/></svg>',
+  balance:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M5 6h14M7 6l-4 6h8L7 6ZM17 6l-4 6h8l-4-6Z"/><path d="M8 21h8"/></svg>',
+  globe:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.4 2.5 3.6 5.5 3.6 9S14.4 18.5 12 21M12 3C9.6 5.5 8.4 8.5 8.4 12S9.6 18.5 12 21"/></svg>',
+  target:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>',
+  list:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>',
+  chart:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4M4 20h16"/><path d="m7 15 4-4 3 3 5-7"/><circle cx="7" cy="15" r="1.2"/><circle cx="11" cy="11" r="1.2"/><circle cx="14" cy="14" r="1.2"/><circle cx="19" cy="7" r="1.2"/></svg>',
+  rotate:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h7a5 5 0 0 1 0 10H9"/><path d="m7 7 3-3M7 7l3 3M17 17l-3 3M17 17l-3-3"/></svg>',
+  mountain:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20 10 6l4 7 2-3 5 10H3Z"/><path d="m10 6 2.5 5H8.5"/></svg>',
+  clock:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l4 2"/></svg>',
+  spark:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3Z"/><path d="M19 4v4M17 6h4"/></svg>',
+  cpu:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 10h6M9 14h6M4 9h2M4 15h2M18 9h2M18 15h2M9 4v2M15 4v2M9 18v2M15 18v2"/></svg>',
+  schematic:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h6v6H4V6ZM14 12h6v6h-6v-6Z"/><path d="M10 9h4M17 12V9H10M7 12v4h7"/></svg>',
+  io:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5V5Z"/><path d="M8 9h3v6H8zM14 9h2v6h-2zM2 9h3M2 15h3M19 9h3M19 15h3"/></svg>',
+  code:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13 5l-2 14"/></svg>',
+  ladder:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v16M18 4v16M6 8h12M6 12h12M6 16h12"/></svg>',
+  braces:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H7a2 2 0 0 0-2 2v3a2 2 0 0 1-2 2 2 2 0 0 1 2 2v3a2 2 0 0 0 2 2h2M15 4h2a2 2 0 0 1 2 2v3a2 2 0 0 0 2 2 2 2 0 0 0-2 2v3a2 2 0 0 1-2 2h-2"/></svg>',
+  blocks:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="8.5" y="13" width="7" height="7" rx="1.5"/></svg>',
+  ethernet:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v6l-2 2h-4l-2-2V4Z"/><path d="M12 12v8M7 20h10M9 7h1M12 7h1M15 7h1"/></svg>',
+  database:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>',
+  monitor:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M9 20h6M12 16v4M8 10h3M13 10h3"/></svg>',
+  bell:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17h12l-1.4-2V10a4.6 4.6 0 0 0-9.2 0v5L6 17Z"/><path d="M10 20h4"/></svg>',
+  motion:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="3"/><path d="M11 12h8M16 8l4 4-4 4M4 6h4M4 18h7"/></svg>',
+  safety:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7v5c0 4.6-3 7.5-8 9-5-1.5-8-4.4-8-9V7l8-4Z"/><path d="M12 8v5M12 16h.1"/></svg>',
+  rocket:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 4c4 1 6 3 7 7l-6 6-5-5 4-8Z"/><path d="M9 12 5 13l-2 5 5-2 1-4ZM14 6l4 4M8 17l-2 2"/></svg>',
+  bug:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="7" width="8" height="12" rx="4"/><path d="M8 11H4M20 11h-4M8 15H5M19 15h-3M10 7 8 4M14 7l2-3M9 20l-2 2M15 20l2 2"/></svg>',
+  wrench:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6a5 5 0 0 0 6 6L10 22l-4-4 10-10a5 5 0 0 1-2-2Z"/><path d="M7 19l-2 2"/></svg>',
+  skill:
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 5v14M5 12h14"/></svg>',
 };
 
 const defaultState = {
@@ -180,6 +574,7 @@ const elements = {
   closeGoalPopup: document.querySelector("#closeGoalPopup"),
   goalList: document.querySelector("#goalList"),
   confirmDialog: document.querySelector("#confirmDialog"),
+  confirmTitle: document.querySelector("#confirmTitle"),
   confirmMessage: document.querySelector("#confirmMessage"),
   cancelConfirm: document.querySelector("#cancelConfirm"),
   confirmDelete: document.querySelector("#confirmDelete"),
@@ -213,9 +608,13 @@ const elements = {
   saveStatus: document.querySelector("#saveStatus"),
   goCurrentWeek: document.querySelector("#goCurrentWeek"),
   goRoadmap: document.querySelector("#goRoadmap"),
+  goSkillTree: document.querySelector("#goSkillTree"),
   roadmapSection: document.querySelector("#roadmapSection"),
   roadmapCanvas: document.querySelector("#roadmapCanvas"),
   roadmapMember: document.querySelector("#roadmapMember"),
+  skillTreeSection: document.querySelector("#skillTreeSection"),
+  skillTreeCanvas: document.querySelector("#skillTreeCanvas"),
+  skillTreeSummary: document.querySelector("#skillTreeSummary"),
 };
 
 let activePopupGoalId = null;
@@ -223,7 +622,9 @@ let activePopupCriterionId = null;
 let goalPopupAnchorRect = null;
 let pendingCriterionFocus = null;
 let pendingDeleteMemberId = null;
+let pendingSkillUnlockId = null;
 let roadmapPanState = null;
+let skillTreePanState = null;
 let loginFocusQueued = false;
 const auth = {
   currentUserId: null,
@@ -277,9 +678,10 @@ function normalizeState(source) {
     savedAt: isValidDateValue(source?.savedAt) ? source.savedAt : null,
     ui: {
       leftCollapsed: Boolean(source?.ui?.leftCollapsed),
-      activeView: source?.ui?.activeView === WORKSPACE_VIEW_ROADMAP ? WORKSPACE_VIEW_ROADMAP : WORKSPACE_VIEW_TIMELINE,
+      activeView: WORKSPACE_VIEWS.includes(source?.ui?.activeView) ? source.ui.activeView : WORKSPACE_VIEW_TIMELINE,
       timelineZoom: TIMELINE_ZOOM_LEVELS.includes(source?.ui?.timelineZoom) ? source.ui.timelineZoom : TIMELINE_ZOOM_WEEK,
       roadmapZoom: normalizeRoadmapZoom(source?.ui?.roadmapZoom),
+      skillTreeZoom: normalizeRoadmapZoom(source?.ui?.skillTreeZoom),
       theme: source?.ui?.theme === THEME_LIGHT ? THEME_LIGHT : THEME_DARK,
     },
     members: Array.isArray(source?.members) && source.members.length ? source.members : fallback.members,
@@ -292,6 +694,7 @@ function normalizeState(source) {
     level: normalizeAccessLevel(member.level ?? inferAccessLevel(member, memberIndex)),
     managerId: member.managerId || "",
     password: normalizeUserPassword(member.password),
+    skillUnlocks: normalizeSkillUnlocks(member.skillUnlocks),
     goals: Array.isArray(member.goals)
       ? member.goals.map((goal) => normalizeGoal(goal, normalized.timelineWeeks, legacyMonths, timelineMigration))
       : [],
@@ -316,6 +719,7 @@ function ensureRequiredUsers(members) {
       existing.level = requiredUser.level;
       existing.managerId = requiredUser.managerId;
       existing.password = requiredUser.password;
+      existing.skillUnlocks = normalizeSkillUnlocks(existing.skillUnlocks);
       return;
     }
 
@@ -326,6 +730,7 @@ function ensureRequiredUsers(members) {
       level: requiredUser.level,
       managerId: requiredUser.managerId,
       password: requiredUser.password,
+      skillUnlocks: {},
       goals: [],
     });
   });
@@ -347,6 +752,15 @@ function normalizeAccessLevel(value) {
 function normalizeUserPassword(value) {
   const password = String(value || "").trim();
   return password && !LEGACY_USER_PASSWORDS.has(password) ? password : DEFAULT_USER_PASSWORD;
+}
+
+function normalizeSkillUnlocks(value) {
+  const skillIds = new Set(SKILL_TREE.nodes.map((node) => node.id));
+  if (!value || typeof value !== "object") return {};
+
+  return Object.fromEntries(
+    Object.entries(value).filter(([skillId, isUnlocked]) => skillIds.has(skillId) && isUnlocked === true),
+  );
 }
 
 function normalizeRoadmapZoom(value) {
@@ -799,6 +1213,7 @@ function render() {
   renderGoalEditors(activeMember);
   renderTimeline(activeMember);
   renderRoadmap(activeMember);
+  renderSkillTree();
   renderUserManagement();
   applyWorkspaceView();
   applySidebarState();
@@ -1380,7 +1795,11 @@ function requestRemoveMember(memberId) {
   if (!member || !currentUser || member.id === currentUser.id || !canManageMember(currentUser, member)) return;
 
   pendingDeleteMemberId = memberId;
+  pendingSkillUnlockId = null;
+  elements.confirmTitle.textContent = "Conferma eliminazione";
   elements.confirmMessage.textContent = `Eliminare ${member.name} e tutti i suoi obiettivi?`;
+  elements.confirmDelete.textContent = "Elimina";
+  elements.confirmDelete.className = "danger-action";
   elements.confirmDialog.hidden = false;
   elements.cancelConfirm.focus();
 }
@@ -1388,9 +1807,18 @@ function requestRemoveMember(memberId) {
 function closeConfirmDialog() {
   elements.confirmDialog.hidden = true;
   pendingDeleteMemberId = null;
+  pendingSkillUnlockId = null;
 }
 
 function confirmRemoveMember() {
+  if (pendingSkillUnlockId) {
+    const skillId = pendingSkillUnlockId;
+    pendingSkillUnlockId = null;
+    elements.confirmDialog.hidden = true;
+    unlockSkillForActiveMember(skillId);
+    return;
+  }
+
   if (!pendingDeleteMemberId) return;
   const memberId = pendingDeleteMemberId;
   pendingDeleteMemberId = null;
@@ -1645,6 +2073,14 @@ function showRoadmapView() {
   window.requestAnimationFrame(centerRoadmapStart);
 }
 
+function showSkillTreeView() {
+  state.ui.activeView = WORKSPACE_VIEW_SKILL_TREE;
+  applyWorkspaceView();
+  persistState();
+  elements.skillTreeCanvas.focus({ preventScroll: true });
+  window.requestAnimationFrame(centerSkillTreeStart);
+}
+
 function goToTimelineTarget(goalId, criterionId = null) {
   if (!findGoal(goalId)) return;
 
@@ -1690,12 +2126,17 @@ function revealTimelineTarget(goalId, criterionId = null) {
 
 function applyWorkspaceView() {
   const isRoadmap = state.ui.activeView === WORKSPACE_VIEW_ROADMAP;
+  const isSkillTree = state.ui.activeView === WORKSPACE_VIEW_SKILL_TREE;
+  const isTimeline = state.ui.activeView === WORKSPACE_VIEW_TIMELINE;
   elements.workspace.classList.toggle("is-roadmap-view", isRoadmap);
-  elements.workspace.classList.toggle("is-timeline-view", !isRoadmap);
-  elements.goCurrentWeek.classList.toggle("active", !isRoadmap);
+  elements.workspace.classList.toggle("is-skilltree-view", isSkillTree);
+  elements.workspace.classList.toggle("is-timeline-view", isTimeline);
+  elements.goCurrentWeek.classList.toggle("active", isTimeline);
   elements.goRoadmap.classList.toggle("active", isRoadmap);
+  elements.goSkillTree.classList.toggle("active", isSkillTree);
   elements.goRoadmap.setAttribute("aria-pressed", String(isRoadmap));
-  elements.goCurrentWeek.setAttribute("aria-pressed", String(!isRoadmap));
+  elements.goCurrentWeek.setAttribute("aria-pressed", String(isTimeline));
+  elements.goSkillTree.setAttribute("aria-pressed", String(isSkillTree));
 }
 
 function toggleTheme() {
@@ -1873,6 +2314,275 @@ function renderRoadmap(activeMember, options = {}) {
   if (state.ui.activeView === WORKSPACE_VIEW_ROADMAP && options.center !== false) {
     centerRoadmapStart();
   }
+}
+
+function centerSkillTreeStart() {
+  elements.skillTreeCanvas.scrollTop = Math.max(
+    0,
+    (elements.skillTreeCanvas.scrollHeight - elements.skillTreeCanvas.clientHeight) / 2,
+  );
+  elements.skillTreeCanvas.scrollLeft = Math.max(
+    0,
+    (elements.skillTreeCanvas.scrollWidth - elements.skillTreeCanvas.clientWidth) / 2,
+  );
+}
+
+function renderSkillTree(options = {}) {
+  elements.skillTreeCanvas.innerHTML = "";
+  const activeMember = getActiveMember();
+  const currentUser = getCurrentUser();
+  const progress = getSkillTreeProgress(activeMember);
+  elements.skillTreeSummary.textContent = activeMember
+    ? `${activeMember.name} - ${progress.unlocked}/${progress.total} skill sbloccate`
+    : SKILL_TREE.summary;
+
+  const { height, nodeById, nodes, width } = getSkillTreeLayout(SKILL_TREE.nodes);
+  const skillTreeZoom = normalizeRoadmapZoom(state.ui.skillTreeZoom);
+
+  const map = document.createElement("div");
+  map.className = "roadmap-map skill-tree-map";
+  map.style.width = `${Math.round(width * skillTreeZoom)}px`;
+  map.style.height = `${Math.round(height * skillTreeZoom)}px`;
+
+  const surface = document.createElement("div");
+  surface.className = "roadmap-surface skill-tree-surface";
+  surface.style.width = `${width}px`;
+  surface.style.height = `${height}px`;
+  surface.style.transform = `scale(${skillTreeZoom})`;
+
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.classList.add("roadmap-lines", "skill-tree-lines");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("aria-hidden", "true");
+
+  nodes.forEach((node) => {
+    const parent = nodeById.get(node.parent);
+    if (!parent) return;
+    const isUnlocked = isSkillUnlockedForMember(node, activeMember) && isSkillUnlockedForMember(parent, activeMember);
+    appendSkillTreeLink(svg, parent, node, "skill-tree-link-shadow", isUnlocked);
+    appendSkillTreeLink(svg, parent, node, "skill-tree-link", isUnlocked);
+  });
+
+  surface.append(svg);
+  nodes.forEach((node) => appendSkillTreeNode(surface, node, activeMember, currentUser));
+  map.append(surface);
+  elements.skillTreeCanvas.append(map);
+
+  if (state.ui.activeView === WORKSPACE_VIEW_SKILL_TREE && options.center !== false) {
+    centerSkillTreeStart();
+  }
+}
+
+function getSkillTreeLayout(sourceNodes) {
+  const baseRadius = 270;
+  const ringGap = 270;
+  const outerMargin = 360;
+  const startAngle = -Math.PI / 2;
+  const nodeById = new Map(sourceNodes.map((node) => [node.id, { ...node }]));
+  const childrenByParent = new Map();
+  const roots = [];
+  let leafIndex = 0;
+  let leafCount = 0;
+  let maxDepth = 0;
+
+  sourceNodes.forEach((node) => {
+    if (!node.parent || !nodeById.has(node.parent)) {
+      roots.push(node.id);
+      return;
+    }
+
+    if (!childrenByParent.has(node.parent)) childrenByParent.set(node.parent, []);
+    childrenByParent.get(node.parent).push(node.id);
+  });
+
+  function countLeaves(nodeId, depth) {
+    const node = nodeById.get(nodeId);
+    const childIds = childrenByParent.get(nodeId) || [];
+    maxDepth = Math.max(maxDepth, depth);
+    node.depth = depth;
+
+    if (!childIds.length) {
+      leafCount += 1;
+      return;
+    }
+
+    childIds.forEach((childId) => countLeaves(childId, depth + 1));
+  }
+
+  function placeAngles(nodeId) {
+    const node = nodeById.get(nodeId);
+    const childIds = childrenByParent.get(nodeId) || [];
+
+    if (!childIds.length) {
+      node.angle = startAngle + ((Math.PI * 2) / Math.max(1, leafCount)) * leafIndex;
+      leafIndex += 1;
+      return node.angle;
+    }
+
+    const childAngles = childIds.map(placeAngles);
+    node.angle = getAverageAngle(childAngles);
+    return node.angle;
+  }
+
+  roots.forEach((rootId) => countLeaves(rootId, 0));
+  roots.forEach(placeAngles);
+
+  const outerRadius = baseRadius + Math.max(0, maxDepth - 1) * ringGap;
+  const width = Math.max(2200, outerRadius * 2 + outerMargin * 2);
+  const height = Math.max(1600, outerRadius * 2 + outerMargin * 2);
+  const centerX = width / 2;
+  const centerY = height / 2;
+  nodeById.forEach((node) => {
+    const radius = node.depth <= 0 ? 0 : baseRadius + (node.depth - 1) * ringGap;
+    node.x = centerX + Math.cos(node.angle || 0) * radius;
+    node.y = centerY + Math.sin(node.angle || 0) * radius;
+  });
+
+  return {
+    height,
+    nodeById,
+    nodes: sourceNodes.map((node) => nodeById.get(node.id)),
+    width,
+  };
+}
+
+function getAverageAngle(angles) {
+  if (!angles.length) return 0;
+
+  const vector = angles.reduce(
+    (accumulator, angle) => ({
+      x: accumulator.x + Math.cos(angle),
+      y: accumulator.y + Math.sin(angle),
+    }),
+    { x: 0, y: 0 },
+  );
+
+  return Math.atan2(vector.y, vector.x);
+}
+
+function appendSkillTreeLink(svg, parent, node, className, isUnlocked) {
+  const link = document.createElementNS(SVG_NS, "path");
+  link.setAttribute("d", `M ${parent.x} ${parent.y} L ${node.x} ${node.y}`);
+  link.setAttribute("stroke", isUnlocked ? node.color : ROADMAP_BLOCKED_COLOR);
+  link.classList.add(className);
+  if (!isUnlocked) link.classList.add("is-locked");
+  svg.append(link);
+}
+
+function appendSkillTreeNode(map, nodeData, activeMember, currentUser) {
+  const isUnlocked = isSkillUnlockedForMember(nodeData, activeMember);
+  const isUnlockable = !isUnlocked && canUnlockSkillForMember(activeMember, currentUser) && isUnlockableSkillNode(nodeData);
+  const node = document.createElement("button");
+  node.className = [
+    "skill-tree-node",
+    nodeData.parent ? "" : "is-root",
+    nodeData.parent === "skill-tree-root" ? "is-branch" : "",
+    isUnlocked ? "is-unlocked" : "is-locked",
+    isUnlockable ? "is-unlockable" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  node.type = "button";
+  node.style.left = `${nodeData.x}px`;
+  node.style.top = `${nodeData.y}px`;
+  node.style.setProperty("--skill-color", nodeData.color);
+  node.dataset.skillId = nodeData.id;
+  node.setAttribute("aria-label", getSkillAriaLabel(nodeData, isUnlocked, isUnlockable));
+  node.setAttribute("aria-disabled", String(!isUnlockable));
+  node.addEventListener("pointerenter", () => node.classList.add("is-hovered"));
+  node.addEventListener("pointerleave", () => node.classList.remove("is-hovered"));
+  node.addEventListener("mouseenter", () => node.classList.add("is-hovered"));
+  node.addEventListener("mouseleave", () => node.classList.remove("is-hovered"));
+  node.addEventListener("focus", () => node.classList.add("is-hovered"));
+  node.addEventListener("blur", () => node.classList.remove("is-hovered"));
+  node.addEventListener("click", (event) => {
+    event.stopPropagation();
+    requestSkillUnlockForActiveMember(nodeData.id);
+  });
+
+  const orb = document.createElement("span");
+  orb.className = "skill-tree-orb";
+  const icon = document.createElement("span");
+  icon.className = "skill-tree-icon";
+  icon.innerHTML = getSkillIconMarkup(nodeData);
+  const card = document.createElement("span");
+  card.className = "skill-tree-hover-card";
+  card.setAttribute("aria-hidden", "true");
+  card.innerHTML = `
+    <strong>${escapeHtml(nodeData.label)}</strong>
+    <span>${escapeHtml(nodeData.description || "Skill permanente acquisita.")}</span>
+  `;
+
+  orb.append(icon);
+  node.append(card);
+  node.append(orb);
+  map.append(node);
+}
+
+function getSkillTreeProgress(member) {
+  const skillNodes = SKILL_TREE.nodes.filter(isUnlockableSkillNode);
+  if (!member) return { total: skillNodes.length, unlocked: 0 };
+
+  return {
+    total: skillNodes.length,
+    unlocked: skillNodes.filter((node) => isSkillUnlockedForMember(node, member)).length,
+  };
+}
+
+function isUnlockableSkillNode(node) {
+  return Boolean(node?.parent && node.parent !== "skill-tree-root");
+}
+
+function isSkillUnlockedForMember(node, member) {
+  if (!node) return false;
+  if (!isUnlockableSkillNode(node)) return true;
+  return Boolean(member?.skillUnlocks?.[node.id]);
+}
+
+function canUnlockSkillForMember(member, currentUser = getCurrentUser()) {
+  return Boolean(currentUser && member && currentUser.id !== member.id && canManageMember(currentUser, member));
+}
+
+function getSkillAriaLabel(node, isUnlocked, isUnlockable) {
+  const action = isUnlockable ? " Clicca per sbloccare." : "";
+  return `${node.label}: ${node.description || "Skill permanente"}. ${
+    isUnlocked ? "Sbloccata." : "Bloccata."
+  }${action}`;
+}
+
+function getSkillIconMarkup(node) {
+  const iconName = SKILL_ICON_BY_ID[node.id] || "skill";
+  return SKILL_ICON_SVG[iconName] || SKILL_ICON_SVG.skill;
+}
+
+function requestSkillUnlockForActiveMember(skillId) {
+  const activeMember = getActiveMember();
+  const currentUser = getCurrentUser();
+  const node = SKILL_TREE.nodes.find((item) => item.id === skillId);
+  if (!node || !activeMember || !isUnlockableSkillNode(node) || isSkillUnlockedForMember(node, activeMember)) return;
+  if (!canUnlockSkillForMember(activeMember, currentUser)) return;
+
+  pendingSkillUnlockId = skillId;
+  pendingDeleteMemberId = null;
+  elements.confirmTitle.textContent = "Conferma sblocco skill";
+  elements.confirmMessage.textContent = `Sbloccare "${node.label}" per ${activeMember.name}? La skill rimarra permanente nel suo skill tree.`;
+  elements.confirmDelete.textContent = "Sblocca";
+  elements.confirmDelete.className = "primary-action confirm-primary-action";
+  elements.confirmDialog.hidden = false;
+  elements.cancelConfirm.focus();
+}
+
+function unlockSkillForActiveMember(skillId) {
+  const activeMember = getActiveMember();
+  const currentUser = getCurrentUser();
+  const node = SKILL_TREE.nodes.find((item) => item.id === skillId);
+  if (!node || !activeMember || !isUnlockableSkillNode(node) || isSkillUnlockedForMember(node, activeMember)) return;
+  if (!canUnlockSkillForMember(activeMember, currentUser)) return;
+
+  activeMember.skillUnlocks = normalizeSkillUnlocks(activeMember.skillUnlocks);
+  activeMember.skillUnlocks[skillId] = true;
+  renderSkillTree({ center: false });
+  persistState();
 }
 
 function getRoadmapColor(index) {
@@ -2314,6 +3024,66 @@ function handleRoadmapWheel(event) {
   });
 }
 
+function handleSkillTreePointerDown(event) {
+  if (event.button !== 0) return;
+  if (event.target.closest(".skill-tree-node")) return;
+
+  skillTreePanState = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    scrollLeft: elements.skillTreeCanvas.scrollLeft,
+    scrollTop: elements.skillTreeCanvas.scrollTop,
+  };
+  elements.skillTreeCanvas.classList.add("is-panning");
+  elements.skillTreeCanvas.setPointerCapture(event.pointerId);
+  event.preventDefault();
+}
+
+function handleSkillTreePointerMove(event) {
+  if (!skillTreePanState || skillTreePanState.pointerId !== event.pointerId) return;
+
+  elements.skillTreeCanvas.scrollLeft = skillTreePanState.scrollLeft - (event.clientX - skillTreePanState.startX);
+  elements.skillTreeCanvas.scrollTop = skillTreePanState.scrollTop - (event.clientY - skillTreePanState.startY);
+}
+
+function endSkillTreePan(event) {
+  if (!skillTreePanState || skillTreePanState.pointerId !== event.pointerId) return;
+
+  if (elements.skillTreeCanvas.hasPointerCapture(event.pointerId)) {
+    elements.skillTreeCanvas.releasePointerCapture(event.pointerId);
+  }
+  skillTreePanState = null;
+  elements.skillTreeCanvas.classList.remove("is-panning");
+}
+
+function handleSkillTreeWheel(event) {
+  if (state.ui.activeView !== WORKSPACE_VIEW_SKILL_TREE) return;
+
+  event.preventDefault();
+  const currentZoom = normalizeRoadmapZoom(state.ui.skillTreeZoom);
+  const nextZoom = normalizeRoadmapZoom(
+    currentZoom * (event.deltaY < 0 ? ROADMAP_ZOOM_STEP : 1 / ROADMAP_ZOOM_STEP),
+  );
+  if (nextZoom === currentZoom) return;
+
+  const rect = elements.skillTreeCanvas.getBoundingClientRect();
+  const pointerX = event.clientX - rect.left;
+  const pointerY = event.clientY - rect.top;
+  const contentX = elements.skillTreeCanvas.scrollLeft + pointerX;
+  const contentY = elements.skillTreeCanvas.scrollTop + pointerY;
+  const zoomRatio = nextZoom / currentZoom;
+
+  state.ui.skillTreeZoom = Number(nextZoom.toFixed(3));
+  renderSkillTree({ center: false });
+  persistState();
+
+  window.requestAnimationFrame(() => {
+    elements.skillTreeCanvas.scrollLeft = contentX * zoomRatio - pointerX;
+    elements.skillTreeCanvas.scrollTop = contentY * zoomRatio - pointerY;
+  });
+}
+
 function getDropMeta(event) {
   return getTimelinePointerMeta(event);
 }
@@ -2745,6 +3515,7 @@ elements.memberPassword.addEventListener("keydown", (event) => {
 elements.memberLevel.addEventListener("change", populateCreateUserManagerOptions);
 elements.goCurrentWeek.addEventListener("click", () => showTimelineView(true));
 elements.goRoadmap.addEventListener("click", showRoadmapView);
+elements.goSkillTree.addEventListener("click", showSkillTreeView);
 elements.zoomTimelineOut.addEventListener("click", () => zoomTimeline(-1));
 elements.zoomTimelineIn.addEventListener("click", () => zoomTimeline(1));
 elements.toggleTheme.addEventListener("click", toggleTheme);
@@ -2773,6 +3544,11 @@ elements.roadmapCanvas.addEventListener("pointermove", handleRoadmapPointerMove)
 elements.roadmapCanvas.addEventListener("pointerup", endRoadmapPan);
 elements.roadmapCanvas.addEventListener("pointercancel", endRoadmapPan);
 elements.roadmapCanvas.addEventListener("wheel", handleRoadmapWheel, { passive: false });
+elements.skillTreeCanvas.addEventListener("pointerdown", handleSkillTreePointerDown);
+elements.skillTreeCanvas.addEventListener("pointermove", handleSkillTreePointerMove);
+elements.skillTreeCanvas.addEventListener("pointerup", endSkillTreePan);
+elements.skillTreeCanvas.addEventListener("pointercancel", endSkillTreePan);
+elements.skillTreeCanvas.addEventListener("wheel", handleSkillTreeWheel, { passive: false });
 
 render();
 initializeCloudSync();

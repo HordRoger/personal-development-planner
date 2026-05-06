@@ -63,6 +63,7 @@
             <div class="workspace-title-row">
               <button id="goCurrentWeek" class="scale-button current-week-button" type="button">Week corrente</button>
               <button id="goRoadmap" class="scale-button roadmap-button" type="button">Roadmap</button>
+              <button id="goSkillTree" class="scale-button skill-tree-button" type="button">Skill tree</button>
             </div>
           </div>
           <div class="timeline-controls" aria-label="Navigazione temporale">
@@ -93,6 +94,17 @@
             <span id="roadmapMember" class="roadmap-member">Nessun membro</span>
           </header>
           <div id="roadmapCanvas" class="roadmap-canvas" tabindex="0" aria-label="Roadmap scrollabile"></div>
+        </section>
+
+        <section id="skillTreeSection" class="roadmap-section skill-tree-section" aria-label="Skill tree">
+          <header class="roadmap-header">
+            <div>
+              <p class="eyebrow">Skill tree</p>
+              <h2>Skill permanenti</h2>
+            </div>
+            <span id="skillTreeSummary" class="roadmap-member">Soft skill + hard skill PLC</span>
+          </header>
+          <div id="skillTreeCanvas" class="roadmap-canvas skill-tree-canvas" tabindex="0" aria-label="Skill tree navigabile"></div>
         </section>
       </section>
 

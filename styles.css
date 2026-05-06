@@ -78,7 +78,10 @@ body {
   margin: 0;
   color: var(--ink);
   background: var(--bg);
+  line-height: 1.28;
   scrollbar-color: rgba(216, 221, 213, 0.42) var(--black);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -258,6 +261,7 @@ h2 {
 
 .auth-dialog {
   z-index: 50;
+  background: var(--bg);
 }
 
 .management-dialog {
@@ -394,6 +398,18 @@ h2 {
   display: flex;
   justify-content: end;
   gap: 8px;
+}
+
+.confirm-actions .primary-action,
+.confirm-actions .danger-action,
+.confirm-actions .secondary-action {
+  width: auto;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.confirm-primary-action {
+  box-shadow: 0 10px 24px rgba(40, 115, 95, 0.24);
 }
 
 .panel-header,
@@ -978,20 +994,23 @@ select option:checked {
 }
 
 .current-week-button,
-.roadmap-button {
+.roadmap-button,
+.skill-tree-button {
   border: 1px solid rgba(216, 221, 213, 0.22);
   color: #dff7e8;
   background: rgba(255, 255, 255, 0.06);
 }
 
 .current-week-button:hover:not(:disabled),
-.roadmap-button:hover {
+.roadmap-button:hover,
+.skill-tree-button:hover {
   border-color: rgba(82, 205, 160, 0.42);
   background: rgba(40, 115, 95, 0.18);
 }
 
 .current-week-button.active:hover:not(:disabled),
-.roadmap-button.active:hover {
+.roadmap-button.active:hover,
+.skill-tree-button.active:hover {
   border-color: transparent;
   background: var(--green-dark);
 }
@@ -1082,8 +1101,11 @@ select option:checked {
   scroll-margin-top: 18px;
 }
 
+.workspace.is-timeline-view .roadmap-section,
 .workspace.is-roadmap-view .timeline-frame,
-.workspace.is-timeline-view .roadmap-section {
+.workspace.is-roadmap-view .skill-tree-section,
+.workspace.is-skilltree-view .timeline-frame,
+.workspace.is-skilltree-view #roadmapSection {
   display: none;
 }
 
@@ -1353,6 +1375,220 @@ select option:checked {
   place-items: center;
   color: rgba(248, 250, 247, 0.62);
   text-align: center;
+}
+
+.skill-tree-canvas {
+  height: min(76vh, 760px);
+}
+
+.skill-tree-lines {
+  opacity: 0.95;
+}
+
+.skill-tree-link,
+.skill-tree-link-shadow {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.skill-tree-link-shadow {
+  stroke-width: 10px;
+  opacity: 0.16;
+}
+
+.skill-tree-link {
+  stroke-width: 4px;
+  opacity: 0.88;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.28));
+}
+
+.skill-tree-link.is-locked {
+  opacity: 0.64;
+  filter: none;
+}
+
+.skill-tree-node {
+  border: 0;
+  padding: 0;
+  position: absolute;
+  display: grid;
+  width: 124px;
+  height: 124px;
+  place-items: center;
+  color: #04100c;
+  background: transparent;
+  font: inherit;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+  outline: none;
+  appearance: none;
+  overflow: visible;
+}
+
+.skill-tree-orb {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  width: 94px;
+  height: 94px;
+  place-items: center;
+  padding: 10px;
+  border: 3px solid color-mix(in srgb, var(--skill-color) 45%, #dbeee7);
+  border-radius: 999px;
+  background: var(--skill-color);
+  box-shadow:
+    0 0 0 5px rgba(5, 7, 6, 0.7),
+    0 18px 34px rgba(0, 0, 0, 0.38);
+  text-align: center;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    filter 120ms ease,
+    transform 120ms ease;
+}
+
+.skill-tree-node.is-root .skill-tree-orb {
+  width: 108px;
+  height: 108px;
+}
+
+.skill-tree-node.is-branch .skill-tree-orb {
+  width: 102px;
+  height: 102px;
+}
+
+.skill-tree-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  color: currentColor;
+}
+
+.skill-tree-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.skill-tree-icon svg * {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.skill-tree-icon svg circle,
+.skill-tree-icon svg rect,
+.skill-tree-icon svg ellipse {
+  vector-effect: non-scaling-stroke;
+}
+
+.skill-tree-node.is-root .skill-tree-icon {
+  width: 54px;
+  height: 54px;
+}
+
+.skill-tree-node.is-branch .skill-tree-icon {
+  width: 50px;
+  height: 50px;
+}
+
+.skill-tree-node.is-locked .skill-tree-orb {
+  border-color: rgba(216, 221, 213, 0.42);
+  color: rgba(13, 20, 17, 0.62);
+  background: #c8d2cd;
+  box-shadow:
+    0 0 0 5px rgba(5, 7, 6, 0.58),
+    0 14px 26px rgba(0, 0, 0, 0.28);
+}
+
+.skill-tree-node.is-locked:not(.is-unlockable) {
+  cursor: help;
+}
+
+.skill-tree-node.is-unlockable {
+  cursor: pointer;
+}
+
+.skill-tree-node.is-unlockable .skill-tree-orb {
+  border-color: rgba(82, 205, 160, 0.88);
+  box-shadow:
+    0 0 0 5px rgba(5, 7, 6, 0.62),
+    0 0 0 9px rgba(82, 205, 160, 0.12),
+    0 18px 34px rgba(0, 0, 0, 0.34);
+}
+
+.skill-tree-hover-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  width: 270px;
+  min-height: 300px;
+  padding: 34px 24px;
+  border: 1px solid color-mix(in srgb, var(--skill-color) 50%, rgba(216, 221, 213, 0.22));
+  border-radius: 12px;
+  color: #f8faf7;
+  background: rgba(5, 7, 6, 0.95);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 24px 54px rgba(0, 0, 0, 0.46);
+  opacity: 0;
+  pointer-events: none;
+  text-align: center;
+  transform: translate(-50%, -50%) scale(0.94);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.skill-tree-hover-card strong {
+  align-self: start;
+  color: #ffffff;
+  font-size: 0.98rem;
+  font-weight: 950;
+  line-height: 1.16;
+}
+
+.skill-tree-hover-card span {
+  align-self: end;
+  color: rgba(248, 250, 247, 0.76);
+  font-size: 0.82rem;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.skill-tree-node:hover,
+.skill-tree-node.is-hovered,
+.skill-tree-node:focus-visible {
+  z-index: 60;
+}
+
+.skill-tree-node:hover .skill-tree-orb,
+.skill-tree-node.is-hovered .skill-tree-orb,
+.skill-tree-node:focus-visible .skill-tree-orb {
+  filter: brightness(1.08);
+  transform: scale(0.98);
+}
+
+.skill-tree-node.is-locked:hover .skill-tree-orb,
+.skill-tree-node.is-locked.is-hovered .skill-tree-orb,
+.skill-tree-node.is-locked:focus-visible .skill-tree-orb {
+  filter: brightness(1.02);
+}
+
+.skill-tree-node:hover .skill-tree-hover-card,
+.skill-tree-node.is-hovered .skill-tree-hover-card,
+.skill-tree-node:focus-visible .skill-tree-hover-card {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .time-axis {
@@ -1699,6 +1935,7 @@ select option:checked {
 :root[data-theme="light"] .theme-toggle,
 :root[data-theme="light"] .current-week-button,
 :root[data-theme="light"] .roadmap-button,
+:root[data-theme="light"] .skill-tree-button,
 :root[data-theme="light"] .sidebar-toggle,
 :root[data-theme="light"] .workspace-header h2,
 :root[data-theme="light"] .user-card-identity strong,
@@ -1714,6 +1951,7 @@ select option:checked {
 :root[data-theme="light"] .theme-toggle,
 :root[data-theme="light"] .current-week-button,
 :root[data-theme="light"] .roadmap-button,
+:root[data-theme="light"] .skill-tree-button,
 :root[data-theme="light"] .sidebar-toggle {
   border-color: rgba(28, 44, 36, 0.18);
   background: rgba(255, 255, 255, 0.72);
@@ -1731,7 +1969,8 @@ select option:checked {
 
 :root[data-theme="light"] .scale-button.active,
 :root[data-theme="light"] .current-week-button.active,
-:root[data-theme="light"] .roadmap-button.active {
+:root[data-theme="light"] .roadmap-button.active,
+:root[data-theme="light"] .skill-tree-button.active {
   color: #fff;
   border-color: var(--green);
   background: var(--green);
@@ -1828,16 +2067,53 @@ select option:checked {
 }
 
 :root[data-theme="light"] .roadmap-criterion-node::after,
-:root[data-theme="light"] .roadmap-goal-node::after {
+:root[data-theme="light"] .roadmap-goal-node::after,
+:root[data-theme="light"] .skill-tree-hover-card {
   color: var(--ink);
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 14px 28px rgba(28, 44, 36, 0.18);
+}
+
+:root[data-theme="light"] .skill-tree-hover-card strong {
+  color: var(--ink);
+}
+
+:root[data-theme="light"] .skill-tree-hover-card span {
+  color: rgba(28, 44, 36, 0.72);
 }
 
 :root[data-theme="light"] .roadmap-criterion-caption,
 :root[data-theme="light"] .roadmap-goal-title {
   color: var(--ink);
   background: rgba(255, 255, 255, 0.88);
+}
+
+:root[data-theme="light"] .skill-tree-link {
+  opacity: 0.82;
+  filter: drop-shadow(0 4px 8px rgba(28, 44, 36, 0.18));
+}
+
+:root[data-theme="light"] .skill-tree-link-shadow {
+  opacity: 0.12;
+}
+
+:root[data-theme="light"] .skill-tree-orb {
+  box-shadow:
+    0 0 0 5px rgba(255, 255, 255, 0.72),
+    0 18px 34px rgba(28, 44, 36, 0.2);
+}
+
+:root[data-theme="light"] .skill-tree-node.is-locked .skill-tree-orb {
+  border-color: rgba(89, 108, 98, 0.42);
+  color: rgba(28, 44, 36, 0.52);
+  background: #d3ddd8;
+  box-shadow:
+    0 0 0 5px rgba(255, 255, 255, 0.72),
+    0 14px 26px rgba(28, 44, 36, 0.14);
+}
+
+:root[data-theme="light"] .skill-tree-link.is-locked {
+  opacity: 0.72;
 }
 
 @media (max-width: 1180px) {
