@@ -18,7 +18,13 @@ const ROADMAP_ZOOM_STEP = 1.1;
 const WORKSPACE_VIEW_TIMELINE = "timeline";
 const WORKSPACE_VIEW_ROADMAP = "roadmap";
 const WORKSPACE_VIEW_SKILL_TREE = "skill-tree";
-const WORKSPACE_VIEWS = [WORKSPACE_VIEW_TIMELINE, WORKSPACE_VIEW_ROADMAP, WORKSPACE_VIEW_SKILL_TREE];
+const WORKSPACE_VIEW_SOFT_SKILL_TREE = "soft-skill-tree";
+const WORKSPACE_VIEWS = [
+  WORKSPACE_VIEW_TIMELINE,
+  WORKSPACE_VIEW_ROADMAP,
+  WORKSPACE_VIEW_SKILL_TREE,
+  WORKSPACE_VIEW_SOFT_SKILL_TREE,
+];
 const THEME_DARK = "dark";
 const THEME_LIGHT = "light";
 const TIMELINE_ZOOM_MONTH = "month";
@@ -63,154 +69,18 @@ const criteriaStatusLabels = {
 };
 
 const SKILL_TREE = {
-  title: "Skill permanenti",
-  summary: "Soft skill + hard skill PLC",
+  id: "hard",
+  title: "PLC skill tree",
+  summary: "Hard skill PLC",
+  view: WORKSPACE_VIEW_SKILL_TREE,
+  rootId: "hard-plc",
+  zoomKey: "skillTreeZoom",
   nodes: [
-    {
-      id: "skill-tree-root",
-      label: "Skill tree",
-      description: "Competenze permanenti acquisite.",
-      color: "#52cda0",
-    },
-    {
-      id: "soft-skill",
-      label: "Soft skill",
-      description: "Competenze trasversali per lavorare bene in team e sui problemi.",
-      parent: "skill-tree-root",
-      color: "#52cda0",
-    },
     {
       id: "hard-plc",
       label: "Hard skill PLC",
       description: "Competenze tecniche per programmare e mettere in servizio impianti PLC.",
-      parent: "skill-tree-root",
       color: "#36a8ff",
-    },
-    {
-      id: "professionalita",
-      label: "Professionalita",
-      description: "Responsabilita, affidabilita e cura del modo di lavorare.",
-      parent: "soft-skill",
-      color: "#2de2d1",
-    },
-    {
-      id: "comunicazione",
-      label: "Comunicazione chiara",
-      description: "Spiegare problemi, decisioni e trade-off in modo comprensibile.",
-      parent: "soft-skill",
-      color: "#36a8ff",
-    },
-    {
-      id: "pensiero-critico",
-      label: "Pensiero critico",
-      description: "Analizzare il contesto prima di scegliere una soluzione.",
-      parent: "soft-skill",
-      color: "#ffd21a",
-    },
-    {
-      id: "apprendimento",
-      label: "Apprendimento continuo",
-      description: "Aggiornarsi, chiedere feedback e trasformarlo in crescita.",
-      parent: "soft-skill",
-      color: "#c47cff",
-    },
-    {
-      id: "etica",
-      label: "Etica e impatto",
-      description: "Valutare conseguenze, rischi e responsabilita del software.",
-      parent: "soft-skill",
-      color: "#ff7a2f",
-    },
-    {
-      id: "ascolto",
-      label: "Ascolto attivo",
-      description: "Capire esigenze, vincoli e segnali deboli prima di rispondere.",
-      parent: "comunicazione",
-      color: "#36a8ff",
-    },
-    {
-      id: "scrittura",
-      label: "Scrittura tecnica",
-      description: "Documentare decisioni, requisiti e passaggi operativi.",
-      parent: "comunicazione",
-      color: "#36a8ff",
-    },
-    {
-      id: "collaborazione",
-      label: "Collaborazione",
-      description: "Lavorare bene con persone, ruoli e priorita diverse.",
-      parent: "soft-skill",
-      color: "#28f879",
-    },
-    {
-      id: "feedback",
-      label: "Feedback e code review",
-      description: "Dare e ricevere feedback tecnico senza bloccare il team.",
-      parent: "collaborazione",
-      color: "#28f879",
-    },
-    {
-      id: "conflitto",
-      label: "Gestione conflitti",
-      description: "Portare attriti e divergenze verso decisioni utili.",
-      parent: "collaborazione",
-      color: "#28f879",
-    },
-    {
-      id: "remoto",
-      label: "Coordinamento remoto",
-      description: "Allinearsi in modo asincrono e rendere visibile il lavoro.",
-      parent: "collaborazione",
-      color: "#28f879",
-    },
-    {
-      id: "problem-framing",
-      label: "Problem framing",
-      description: "Definire il problema giusto prima di implementare.",
-      parent: "pensiero-critico",
-      color: "#ffd21a",
-    },
-    {
-      id: "priorita",
-      label: "Prioritizzazione",
-      description: "Separare urgenza, valore e rischio nelle decisioni quotidiane.",
-      parent: "pensiero-critico",
-      color: "#ffd21a",
-    },
-    {
-      id: "decisioni",
-      label: "Decisioni basate su dati",
-      description: "Usare evidenze, metriche e test per orientare le scelte.",
-      parent: "problem-framing",
-      color: "#ffd21a",
-    },
-    {
-      id: "adattabilita",
-      label: "Adattabilita",
-      description: "Cambiare approccio quando il contesto o la tecnologia cambia.",
-      parent: "apprendimento",
-      color: "#c47cff",
-    },
-    {
-      id: "resilienza",
-      label: "Resilienza al cambiamento",
-      description: "Reggere incertezza, incidenti e iterazioni senza perdere lucidita.",
-      parent: "apprendimento",
-      color: "#c47cff",
-    },
-    {
-      id: "autogestione",
-      label: "Autogestione",
-      description: "Gestire focus, tempo e promesse in autonomia.",
-      parent: "professionalita",
-      color: "#c47cff",
-    },
-    {
-      id: "inclusione",
-      label: "Inclusione stakeholder",
-      description: "Considerare utenti, team e contesti diversi nelle scelte tecniche.",
-      parent: "etica",
-      color: "#ff7a2f",
     },
     {
       id: "fondamenti-plc",
@@ -334,6 +204,228 @@ const SKILL_TREE = {
   ],
 };
 
+const SOFT_SKILL_TREE = {
+  id: "soft",
+  title: "Competenze trasversali",
+  summary: "Soft skill",
+  view: WORKSPACE_VIEW_SOFT_SKILL_TREE,
+  rootId: "soft-skill",
+  zoomKey: "softSkillTreeZoom",
+  nodes: [
+    {
+      id: "soft-skill",
+      label: "Soft skill",
+      description: "Competenze trasversali per lavorare bene in team e sui problemi.",
+      color: "#52cda0",
+    },
+    {
+      id: "professionalita",
+      label: "Professionalita",
+      description: "Responsabilita, affidabilita e cura del modo di lavorare.",
+      parent: "soft-skill",
+      color: "#2de2d1",
+    },
+    {
+      id: "autogestione",
+      label: "Autogestione",
+      description: "Gestire focus, tempo e promesse in autonomia.",
+      parent: "professionalita",
+      color: "#2de2d1",
+    },
+    {
+      id: "ownership-operativa",
+      label: "Ownership operativa",
+      description: "Prendere in carico problemi, follow-up e decisioni fino alla chiusura.",
+      parent: "professionalita",
+      color: "#2de2d1",
+    },
+    {
+      id: "gestione-energia",
+      label: "Gestione energia",
+      description: "Proteggere attenzione, ritmo e recupero nei periodi intensi.",
+      parent: "professionalita",
+      color: "#2de2d1",
+    },
+    {
+      id: "comunicazione",
+      label: "Comunicazione chiara",
+      description: "Spiegare problemi, decisioni e trade-off in modo comprensibile.",
+      parent: "soft-skill",
+      color: "#36a8ff",
+    },
+    {
+      id: "ascolto",
+      label: "Ascolto attivo",
+      description: "Capire esigenze, vincoli e segnali deboli prima di rispondere.",
+      parent: "comunicazione",
+      color: "#36a8ff",
+    },
+    {
+      id: "scrittura",
+      label: "Scrittura tecnica",
+      description: "Documentare decisioni, requisiti e passaggi operativi.",
+      parent: "comunicazione",
+      color: "#36a8ff",
+    },
+    {
+      id: "assertivita",
+      label: "Assertivita",
+      description: "Dire no, chiedere chiarezza e proteggere priorita senza irrigidirsi.",
+      parent: "comunicazione",
+      color: "#36a8ff",
+    },
+    {
+      id: "storytelling",
+      label: "Storytelling tecnico",
+      description: "Rendere leggibile il percorso da problema, evidenze e soluzione.",
+      parent: "comunicazione",
+      color: "#36a8ff",
+    },
+    {
+      id: "collaborazione",
+      label: "Collaborazione",
+      description: "Lavorare bene con persone, ruoli e priorita diverse.",
+      parent: "soft-skill",
+      color: "#28f879",
+    },
+    {
+      id: "feedback",
+      label: "Feedback e code review",
+      description: "Dare e ricevere feedback tecnico senza bloccare il team.",
+      parent: "collaborazione",
+      color: "#28f879",
+    },
+    {
+      id: "conflitto",
+      label: "Gestione conflitti",
+      description: "Portare attriti e divergenze verso decisioni utili.",
+      parent: "collaborazione",
+      color: "#28f879",
+    },
+    {
+      id: "remoto",
+      label: "Coordinamento remoto",
+      description: "Allinearsi in modo asincrono e rendere visibile il lavoro.",
+      parent: "collaborazione",
+      color: "#28f879",
+    },
+    {
+      id: "negoziazione",
+      label: "Negoziazione",
+      description: "Trovare accordi pratici tra vincoli tecnici, tempi e bisogni diversi.",
+      parent: "collaborazione",
+      color: "#28f879",
+    },
+    {
+      id: "pensiero-critico",
+      label: "Pensiero critico",
+      description: "Analizzare il contesto prima di scegliere una soluzione.",
+      parent: "soft-skill",
+      color: "#ffd21a",
+    },
+    {
+      id: "problem-framing",
+      label: "Problem framing",
+      description: "Definire il problema giusto prima di implementare.",
+      parent: "pensiero-critico",
+      color: "#ffd21a",
+    },
+    {
+      id: "priorita",
+      label: "Prioritizzazione",
+      description: "Separare urgenza, valore e rischio nelle decisioni quotidiane.",
+      parent: "pensiero-critico",
+      color: "#ffd21a",
+    },
+    {
+      id: "decisioni",
+      label: "Decisioni basate su dati",
+      description: "Usare evidenze, metriche e test per orientare le scelte.",
+      parent: "pensiero-critico",
+      color: "#ffd21a",
+    },
+    {
+      id: "pensiero-sistemico",
+      label: "Pensiero sistemico",
+      description: "Vedere dipendenze, effetti laterali e impatto sul processo completo.",
+      parent: "pensiero-critico",
+      color: "#ffd21a",
+    },
+    {
+      id: "apprendimento",
+      label: "Apprendimento continuo",
+      description: "Aggiornarsi, chiedere feedback e trasformarlo in crescita.",
+      parent: "soft-skill",
+      color: "#c47cff",
+    },
+    {
+      id: "adattabilita",
+      label: "Adattabilita",
+      description: "Cambiare approccio quando il contesto o la tecnologia cambia.",
+      parent: "apprendimento",
+      color: "#c47cff",
+    },
+    {
+      id: "resilienza",
+      label: "Resilienza al cambiamento",
+      description: "Reggere incertezza, incidenti e iterazioni senza perdere lucidita.",
+      parent: "apprendimento",
+      color: "#c47cff",
+    },
+    {
+      id: "curiosita-operativa",
+      label: "Curiosita operativa",
+      description: "Fare domande migliori e testare ipotesi sul campo.",
+      parent: "apprendimento",
+      color: "#c47cff",
+    },
+    {
+      id: "etica",
+      label: "Etica e impatto",
+      description: "Valutare conseguenze, rischi e responsabilita del software.",
+      parent: "soft-skill",
+      color: "#ff7a2f",
+    },
+    {
+      id: "inclusione",
+      label: "Inclusione stakeholder",
+      description: "Considerare utenti, team e contesti diversi nelle scelte tecniche.",
+      parent: "etica",
+      color: "#ff7a2f",
+    },
+    {
+      id: "leadership-relazionale",
+      label: "Leadership relazionale",
+      description: "Aiutare il team a decidere, crescere e coordinarsi meglio.",
+      parent: "soft-skill",
+      color: "#f052b8",
+    },
+    {
+      id: "mentoring",
+      label: "Mentoring",
+      description: "Far crescere autonomia e criterio tecnico nelle persone junior.",
+      parent: "leadership-relazionale",
+      color: "#f052b8",
+    },
+    {
+      id: "delega",
+      label: "Delega",
+      description: "Affidare attivita con contesto, confini e controllo chiari.",
+      parent: "leadership-relazionale",
+      color: "#f052b8",
+    },
+    {
+      id: "facilitazione",
+      label: "Facilitazione",
+      description: "Guidare riunioni e decisioni verso risultati concreti.",
+      parent: "leadership-relazionale",
+      color: "#f052b8",
+    },
+  ],
+};
+
+const SKILL_TREES = [SKILL_TREE, SOFT_SKILL_TREE];
+
 const SKILL_ICON_BY_ID = {
   "skill-tree-root": "network",
   "soft-skill": "people",
@@ -355,7 +447,18 @@ const SKILL_ICON_BY_ID = {
   adattabilita: "rotate",
   resilienza: "mountain",
   autogestione: "clock",
+  "ownership-operativa": "target",
+  "gestione-energia": "clock",
+  assertivita: "message",
+  storytelling: "file",
+  negoziazione: "balance",
+  "pensiero-sistemico": "network",
+  "curiosita-operativa": "spark",
   inclusione: "spark",
+  "leadership-relazionale": "team",
+  mentoring: "people",
+  delega: "target",
+  facilitazione: "message",
   "fondamenti-plc": "cpu",
   "impianto-elettrico": "schematic",
   "io-segnali": "io",
@@ -609,12 +712,16 @@ const elements = {
   goCurrentWeek: document.querySelector("#goCurrentWeek"),
   goRoadmap: document.querySelector("#goRoadmap"),
   goSkillTree: document.querySelector("#goSkillTree"),
+  goSoftSkillTree: document.querySelector("#goSoftSkillTree"),
   roadmapSection: document.querySelector("#roadmapSection"),
   roadmapCanvas: document.querySelector("#roadmapCanvas"),
   roadmapMember: document.querySelector("#roadmapMember"),
   skillTreeSection: document.querySelector("#skillTreeSection"),
   skillTreeCanvas: document.querySelector("#skillTreeCanvas"),
   skillTreeSummary: document.querySelector("#skillTreeSummary"),
+  softSkillTreeSection: document.querySelector("#softSkillTreeSection"),
+  softSkillTreeCanvas: document.querySelector("#softSkillTreeCanvas"),
+  softSkillTreeSummary: document.querySelector("#softSkillTreeSummary"),
 };
 
 let activePopupGoalId = null;
@@ -682,6 +789,7 @@ function normalizeState(source) {
       timelineZoom: TIMELINE_ZOOM_LEVELS.includes(source?.ui?.timelineZoom) ? source.ui.timelineZoom : TIMELINE_ZOOM_WEEK,
       roadmapZoom: normalizeRoadmapZoom(source?.ui?.roadmapZoom),
       skillTreeZoom: normalizeRoadmapZoom(source?.ui?.skillTreeZoom),
+      softSkillTreeZoom: normalizeRoadmapZoom(source?.ui?.softSkillTreeZoom),
       theme: source?.ui?.theme === THEME_LIGHT ? THEME_LIGHT : THEME_DARK,
     },
     members: Array.isArray(source?.members) && source.members.length ? source.members : fallback.members,
@@ -755,7 +863,7 @@ function normalizeUserPassword(value) {
 }
 
 function normalizeSkillUnlocks(value) {
-  const skillIds = new Set(SKILL_TREE.nodes.map((node) => node.id));
+  const skillIds = new Set(SKILL_TREES.flatMap((tree) => tree.nodes.map((node) => node.id)));
   if (!value || typeof value !== "object") return {};
 
   return Object.fromEntries(
@@ -1213,7 +1321,7 @@ function render() {
   renderGoalEditors(activeMember);
   renderTimeline(activeMember);
   renderRoadmap(activeMember);
-  renderSkillTree();
+  renderSkillTrees();
   renderUserManagement();
   applyWorkspaceView();
   applySidebarState();
@@ -1225,7 +1333,7 @@ function render() {
 
 function renderMemberSelect(activeMember) {
   const visibleMembers = getVisibleMembers();
-  elements.memberCount.textContent = visibleMembers.length;
+  if (elements.memberCount) elements.memberCount.textContent = visibleMembers.length;
   if (!elements.memberSelect || !elements.memberSearchOptions) return;
 
   elements.memberSearchOptions.innerHTML = "";
@@ -2078,7 +2186,15 @@ function showSkillTreeView() {
   applyWorkspaceView();
   persistState();
   elements.skillTreeCanvas.focus({ preventScroll: true });
-  window.requestAnimationFrame(centerSkillTreeStart);
+  window.requestAnimationFrame(() => centerSkillTreeStart(elements.skillTreeCanvas));
+}
+
+function showSoftSkillTreeView() {
+  state.ui.activeView = WORKSPACE_VIEW_SOFT_SKILL_TREE;
+  applyWorkspaceView();
+  persistState();
+  elements.softSkillTreeCanvas.focus({ preventScroll: true });
+  window.requestAnimationFrame(() => centerSkillTreeStart(elements.softSkillTreeCanvas));
 }
 
 function goToTimelineTarget(goalId, criterionId = null) {
@@ -2127,16 +2243,20 @@ function revealTimelineTarget(goalId, criterionId = null) {
 function applyWorkspaceView() {
   const isRoadmap = state.ui.activeView === WORKSPACE_VIEW_ROADMAP;
   const isSkillTree = state.ui.activeView === WORKSPACE_VIEW_SKILL_TREE;
+  const isSoftSkillTree = state.ui.activeView === WORKSPACE_VIEW_SOFT_SKILL_TREE;
   const isTimeline = state.ui.activeView === WORKSPACE_VIEW_TIMELINE;
   elements.workspace.classList.toggle("is-roadmap-view", isRoadmap);
   elements.workspace.classList.toggle("is-skilltree-view", isSkillTree);
+  elements.workspace.classList.toggle("is-soft-skilltree-view", isSoftSkillTree);
   elements.workspace.classList.toggle("is-timeline-view", isTimeline);
   elements.goCurrentWeek.classList.toggle("active", isTimeline);
   elements.goRoadmap.classList.toggle("active", isRoadmap);
   elements.goSkillTree.classList.toggle("active", isSkillTree);
+  elements.goSoftSkillTree.classList.toggle("active", isSoftSkillTree);
   elements.goRoadmap.setAttribute("aria-pressed", String(isRoadmap));
   elements.goCurrentWeek.setAttribute("aria-pressed", String(isTimeline));
   elements.goSkillTree.setAttribute("aria-pressed", String(isSkillTree));
+  elements.goSoftSkillTree.setAttribute("aria-pressed", String(isSoftSkillTree));
 }
 
 function toggleTheme() {
@@ -2316,36 +2436,33 @@ function renderRoadmap(activeMember, options = {}) {
   }
 }
 
-function centerSkillTreeStart() {
-  elements.skillTreeCanvas.scrollTop = Math.max(
-    0,
-    (elements.skillTreeCanvas.scrollHeight - elements.skillTreeCanvas.clientHeight) / 2,
-  );
-  elements.skillTreeCanvas.scrollLeft = Math.max(
-    0,
-    (elements.skillTreeCanvas.scrollWidth - elements.skillTreeCanvas.clientWidth) / 2,
-  );
+function centerSkillTreeStart(canvas = elements.skillTreeCanvas) {
+  canvas.scrollTop = Math.max(0, (canvas.scrollHeight - canvas.clientHeight) / 2);
+  canvas.scrollLeft = Math.max(0, (canvas.scrollWidth - canvas.clientWidth) / 2);
 }
 
-function renderSkillTree(options = {}) {
-  elements.skillTreeCanvas.innerHTML = "";
+function renderSkillTrees(options = {}) {
+  renderSkillTree(SKILL_TREE, elements.skillTreeCanvas, elements.skillTreeSummary, options);
+  renderSkillTree(SOFT_SKILL_TREE, elements.softSkillTreeCanvas, elements.softSkillTreeSummary, options);
+}
+
+function renderSkillTree(tree, canvas, summary, options = {}) {
+  canvas.innerHTML = "";
   const activeMember = getActiveMember();
   const currentUser = getCurrentUser();
-  const progress = getSkillTreeProgress(activeMember);
-  elements.skillTreeSummary.textContent = activeMember
-    ? `${activeMember.name} - ${progress.unlocked}/${progress.total} skill sbloccate`
-    : SKILL_TREE.summary;
+  const progress = getSkillTreeProgress(activeMember, tree);
+  summary.textContent = `${progress.unlocked}/${progress.total} skill sbloccate`;
 
-  const { height, nodeById, nodes, width } = getSkillTreeLayout(SKILL_TREE.nodes);
-  const skillTreeZoom = normalizeRoadmapZoom(state.ui.skillTreeZoom);
+  const { height, nodeById, nodes, width } = getSkillTreeLayout(tree.nodes);
+  const skillTreeZoom = normalizeRoadmapZoom(state.ui[tree.zoomKey]);
 
   const map = document.createElement("div");
-  map.className = "roadmap-map skill-tree-map";
+  map.className = `roadmap-map skill-tree-map skill-tree-map-${tree.id}`;
   map.style.width = `${Math.round(width * skillTreeZoom)}px`;
   map.style.height = `${Math.round(height * skillTreeZoom)}px`;
 
   const surface = document.createElement("div");
-  surface.className = "roadmap-surface skill-tree-surface";
+  surface.className = `roadmap-surface skill-tree-surface skill-tree-surface-${tree.id}`;
   surface.style.width = `${width}px`;
   surface.style.height = `${height}px`;
   surface.style.transform = `scale(${skillTreeZoom})`;
@@ -2358,31 +2475,29 @@ function renderSkillTree(options = {}) {
   nodes.forEach((node) => {
     const parent = nodeById.get(node.parent);
     if (!parent) return;
-    const isUnlocked = isSkillUnlockedForMember(node, activeMember) && isSkillUnlockedForMember(parent, activeMember);
+    const isUnlocked = isSkillUnlockedForMember(node, activeMember, tree) && isSkillUnlockedForMember(parent, activeMember, tree);
     appendSkillTreeLink(svg, parent, node, "skill-tree-link-shadow", isUnlocked);
     appendSkillTreeLink(svg, parent, node, "skill-tree-link", isUnlocked);
   });
 
   surface.append(svg);
-  nodes.forEach((node) => appendSkillTreeNode(surface, node, activeMember, currentUser));
+  nodes.forEach((node) => appendSkillTreeNode(surface, node, tree, activeMember, currentUser));
   map.append(surface);
-  elements.skillTreeCanvas.append(map);
+  canvas.append(map);
 
-  if (state.ui.activeView === WORKSPACE_VIEW_SKILL_TREE && options.center !== false) {
-    centerSkillTreeStart();
+  if (state.ui.activeView === tree.view && options.center !== false) {
+    centerSkillTreeStart(canvas);
   }
 }
 
 function getSkillTreeLayout(sourceNodes) {
-  const baseRadius = 270;
-  const ringGap = 270;
-  const outerMargin = 360;
-  const startAngle = -Math.PI / 2;
+  const baseRadius = 250;
+  const ringGap = 255;
+  const outerMargin = 340;
+  const firstBranchAngle = -Math.PI / 2;
   const nodeById = new Map(sourceNodes.map((node) => [node.id, { ...node }]));
   const childrenByParent = new Map();
   const roots = [];
-  let leafIndex = 0;
-  let leafCount = 0;
   let maxDepth = 0;
 
   sourceNodes.forEach((node) => {
@@ -2395,41 +2510,47 @@ function getSkillTreeLayout(sourceNodes) {
     childrenByParent.get(node.parent).push(node.id);
   });
 
-  function countLeaves(nodeId, depth) {
+  function setDepth(nodeId, depth) {
     const node = nodeById.get(nodeId);
     const childIds = childrenByParent.get(nodeId) || [];
     maxDepth = Math.max(maxDepth, depth);
     node.depth = depth;
-
-    if (!childIds.length) {
-      leafCount += 1;
-      return;
-    }
-
-    childIds.forEach((childId) => countLeaves(childId, depth + 1));
+    childIds.forEach((childId) => setDepth(childId, depth + 1));
   }
 
-  function placeAngles(nodeId) {
+  function placeBranch(nodeId, angle, span) {
     const node = nodeById.get(nodeId);
     const childIds = childrenByParent.get(nodeId) || [];
+    node.angle = angle;
 
-    if (!childIds.length) {
-      node.angle = startAngle + ((Math.PI * 2) / Math.max(1, leafCount)) * leafIndex;
-      leafIndex += 1;
-      return node.angle;
-    }
+    if (!childIds.length) return;
 
-    const childAngles = childIds.map(placeAngles);
-    node.angle = getAverageAngle(childAngles);
-    return node.angle;
+    const localSpan = Math.min(span, Math.PI / (node.depth <= 1 ? 1.35 : 1.8));
+    const step = localSpan / childIds.length;
+    childIds.forEach((childId, index) => {
+      const childAngle = angle - localSpan / 2 + step * (index + 0.5);
+      placeBranch(childId, childAngle, Math.min(step * 0.9, Math.PI / 3));
+    });
   }
 
-  roots.forEach((rootId) => countLeaves(rootId, 0));
-  roots.forEach(placeAngles);
+  roots.forEach((rootId) => setDepth(rootId, 0));
+  roots.forEach((rootId) => {
+    const root = nodeById.get(rootId);
+    const childIds = childrenByParent.get(rootId) || [];
+    root.angle = 0;
+
+    if (!childIds.length) return;
+
+    const step = (Math.PI * 2) / childIds.length;
+    childIds.forEach((childId, index) => {
+      const branchAngle = firstBranchAngle + step * index;
+      placeBranch(childId, branchAngle, step * 0.9);
+    });
+  });
 
   const outerRadius = baseRadius + Math.max(0, maxDepth - 1) * ringGap;
-  const width = Math.max(2200, outerRadius * 2 + outerMargin * 2);
-  const height = Math.max(1600, outerRadius * 2 + outerMargin * 2);
+  const width = Math.max(1900, outerRadius * 2 + outerMargin * 2);
+  const height = Math.max(1700, outerRadius * 2 + outerMargin * 2);
   const centerX = width / 2;
   const centerY = height / 2;
   nodeById.forEach((node) => {
@@ -2469,14 +2590,15 @@ function appendSkillTreeLink(svg, parent, node, className, isUnlocked) {
   svg.append(link);
 }
 
-function appendSkillTreeNode(map, nodeData, activeMember, currentUser) {
-  const isUnlocked = isSkillUnlockedForMember(nodeData, activeMember);
-  const isUnlockable = !isUnlocked && canUnlockSkillForMember(activeMember, currentUser) && isUnlockableSkillNode(nodeData);
+function appendSkillTreeNode(map, nodeData, tree, activeMember, currentUser) {
+  const isUnlocked = isSkillUnlockedForMember(nodeData, activeMember, tree);
+  const isUnlockable =
+    !isUnlocked && canUnlockSkillForMember(activeMember, currentUser) && isUnlockableSkillNode(nodeData, tree);
   const node = document.createElement("button");
   node.className = [
     "skill-tree-node",
     nodeData.parent ? "" : "is-root",
-    nodeData.parent === "skill-tree-root" ? "is-branch" : "",
+    nodeData.parent === tree.rootId ? "is-branch" : "",
     isUnlocked ? "is-unlocked" : "is-locked",
     isUnlockable ? "is-unlockable" : "",
   ]
@@ -2519,24 +2641,36 @@ function appendSkillTreeNode(map, nodeData, activeMember, currentUser) {
   map.append(node);
 }
 
-function getSkillTreeProgress(member) {
-  const skillNodes = SKILL_TREE.nodes.filter(isUnlockableSkillNode);
+function getSkillTreeProgress(member, tree) {
+  const skillNodes = tree.nodes.filter((node) => isUnlockableSkillNode(node, tree));
   if (!member) return { total: skillNodes.length, unlocked: 0 };
 
   return {
     total: skillNodes.length,
-    unlocked: skillNodes.filter((node) => isSkillUnlockedForMember(node, member)).length,
+    unlocked: skillNodes.filter((node) => isSkillUnlockedForMember(node, member, tree)).length,
   };
 }
 
-function isUnlockableSkillNode(node) {
-  return Boolean(node?.parent && node.parent !== "skill-tree-root");
+function isUnlockableSkillNode(node, tree = getSkillTreeForNode(node?.id)) {
+  return Boolean(node?.parent && node.parent !== tree?.rootId);
 }
 
-function isSkillUnlockedForMember(node, member) {
+function isSkillUnlockedForMember(node, member, tree = getSkillTreeForNode(node?.id)) {
   if (!node) return false;
-  if (!isUnlockableSkillNode(node)) return true;
+  if (!isUnlockableSkillNode(node, tree)) return true;
   return Boolean(member?.skillUnlocks?.[node.id]);
+}
+
+function getSkillTreeForNode(skillId) {
+  return SKILL_TREES.find((tree) => tree.nodes.some((node) => node.id === skillId)) || null;
+}
+
+function findSkillNode(skillId) {
+  const tree = getSkillTreeForNode(skillId);
+  return {
+    node: tree?.nodes.find((item) => item.id === skillId) || null,
+    tree,
+  };
 }
 
 function canUnlockSkillForMember(member, currentUser = getCurrentUser()) {
@@ -2558,8 +2692,10 @@ function getSkillIconMarkup(node) {
 function requestSkillUnlockForActiveMember(skillId) {
   const activeMember = getActiveMember();
   const currentUser = getCurrentUser();
-  const node = SKILL_TREE.nodes.find((item) => item.id === skillId);
-  if (!node || !activeMember || !isUnlockableSkillNode(node) || isSkillUnlockedForMember(node, activeMember)) return;
+  const { node, tree } = findSkillNode(skillId);
+  if (!node || !activeMember || !isUnlockableSkillNode(node, tree) || isSkillUnlockedForMember(node, activeMember, tree)) {
+    return;
+  }
   if (!canUnlockSkillForMember(activeMember, currentUser)) return;
 
   pendingSkillUnlockId = skillId;
@@ -2575,13 +2711,15 @@ function requestSkillUnlockForActiveMember(skillId) {
 function unlockSkillForActiveMember(skillId) {
   const activeMember = getActiveMember();
   const currentUser = getCurrentUser();
-  const node = SKILL_TREE.nodes.find((item) => item.id === skillId);
-  if (!node || !activeMember || !isUnlockableSkillNode(node) || isSkillUnlockedForMember(node, activeMember)) return;
+  const { node, tree } = findSkillNode(skillId);
+  if (!node || !activeMember || !isUnlockableSkillNode(node, tree) || isSkillUnlockedForMember(node, activeMember, tree)) {
+    return;
+  }
   if (!canUnlockSkillForMember(activeMember, currentUser)) return;
 
   activeMember.skillUnlocks = normalizeSkillUnlocks(activeMember.skillUnlocks);
   activeMember.skillUnlocks[skillId] = true;
-  renderSkillTree({ center: false });
+  renderSkillTrees({ center: false });
   persistState();
 }
 
@@ -3028,60 +3166,71 @@ function handleSkillTreePointerDown(event) {
   if (event.button !== 0) return;
   if (event.target.closest(".skill-tree-node")) return;
 
+  const canvas = event.currentTarget;
   skillTreePanState = {
+    canvas,
     pointerId: event.pointerId,
     startX: event.clientX,
     startY: event.clientY,
-    scrollLeft: elements.skillTreeCanvas.scrollLeft,
-    scrollTop: elements.skillTreeCanvas.scrollTop,
+    scrollLeft: canvas.scrollLeft,
+    scrollTop: canvas.scrollTop,
   };
-  elements.skillTreeCanvas.classList.add("is-panning");
-  elements.skillTreeCanvas.setPointerCapture(event.pointerId);
+  canvas.classList.add("is-panning");
+  canvas.setPointerCapture(event.pointerId);
   event.preventDefault();
 }
 
 function handleSkillTreePointerMove(event) {
   if (!skillTreePanState || skillTreePanState.pointerId !== event.pointerId) return;
 
-  elements.skillTreeCanvas.scrollLeft = skillTreePanState.scrollLeft - (event.clientX - skillTreePanState.startX);
-  elements.skillTreeCanvas.scrollTop = skillTreePanState.scrollTop - (event.clientY - skillTreePanState.startY);
+  skillTreePanState.canvas.scrollLeft = skillTreePanState.scrollLeft - (event.clientX - skillTreePanState.startX);
+  skillTreePanState.canvas.scrollTop = skillTreePanState.scrollTop - (event.clientY - skillTreePanState.startY);
 }
 
 function endSkillTreePan(event) {
   if (!skillTreePanState || skillTreePanState.pointerId !== event.pointerId) return;
 
-  if (elements.skillTreeCanvas.hasPointerCapture(event.pointerId)) {
-    elements.skillTreeCanvas.releasePointerCapture(event.pointerId);
+  const canvas = skillTreePanState.canvas;
+  if (canvas.hasPointerCapture(event.pointerId)) {
+    canvas.releasePointerCapture(event.pointerId);
   }
   skillTreePanState = null;
-  elements.skillTreeCanvas.classList.remove("is-panning");
+  canvas.classList.remove("is-panning");
 }
 
 function handleSkillTreeWheel(event) {
-  if (state.ui.activeView !== WORKSPACE_VIEW_SKILL_TREE) return;
+  const canvas = event.currentTarget;
+  const tree = getSkillTreeForCanvas(canvas);
+  if (!tree || state.ui.activeView !== tree.view) return;
 
   event.preventDefault();
-  const currentZoom = normalizeRoadmapZoom(state.ui.skillTreeZoom);
+  const currentZoom = normalizeRoadmapZoom(state.ui[tree.zoomKey]);
   const nextZoom = normalizeRoadmapZoom(
     currentZoom * (event.deltaY < 0 ? ROADMAP_ZOOM_STEP : 1 / ROADMAP_ZOOM_STEP),
   );
   if (nextZoom === currentZoom) return;
 
-  const rect = elements.skillTreeCanvas.getBoundingClientRect();
+  const rect = canvas.getBoundingClientRect();
   const pointerX = event.clientX - rect.left;
   const pointerY = event.clientY - rect.top;
-  const contentX = elements.skillTreeCanvas.scrollLeft + pointerX;
-  const contentY = elements.skillTreeCanvas.scrollTop + pointerY;
+  const contentX = canvas.scrollLeft + pointerX;
+  const contentY = canvas.scrollTop + pointerY;
   const zoomRatio = nextZoom / currentZoom;
 
-  state.ui.skillTreeZoom = Number(nextZoom.toFixed(3));
-  renderSkillTree({ center: false });
+  state.ui[tree.zoomKey] = Number(nextZoom.toFixed(3));
+  renderSkillTrees({ center: false });
   persistState();
 
   window.requestAnimationFrame(() => {
-    elements.skillTreeCanvas.scrollLeft = contentX * zoomRatio - pointerX;
-    elements.skillTreeCanvas.scrollTop = contentY * zoomRatio - pointerY;
+    canvas.scrollLeft = contentX * zoomRatio - pointerX;
+    canvas.scrollTop = contentY * zoomRatio - pointerY;
   });
+}
+
+function getSkillTreeForCanvas(canvas) {
+  if (canvas === elements.skillTreeCanvas) return SKILL_TREE;
+  if (canvas === elements.softSkillTreeCanvas) return SOFT_SKILL_TREE;
+  return null;
 }
 
 function getDropMeta(event) {
@@ -3516,6 +3665,7 @@ elements.memberLevel.addEventListener("change", populateCreateUserManagerOptions
 elements.goCurrentWeek.addEventListener("click", () => showTimelineView(true));
 elements.goRoadmap.addEventListener("click", showRoadmapView);
 elements.goSkillTree.addEventListener("click", showSkillTreeView);
+elements.goSoftSkillTree.addEventListener("click", showSoftSkillTreeView);
 elements.zoomTimelineOut.addEventListener("click", () => zoomTimeline(-1));
 elements.zoomTimelineIn.addEventListener("click", () => zoomTimeline(1));
 elements.toggleTheme.addEventListener("click", toggleTheme);
@@ -3549,6 +3699,11 @@ elements.skillTreeCanvas.addEventListener("pointermove", handleSkillTreePointerM
 elements.skillTreeCanvas.addEventListener("pointerup", endSkillTreePan);
 elements.skillTreeCanvas.addEventListener("pointercancel", endSkillTreePan);
 elements.skillTreeCanvas.addEventListener("wheel", handleSkillTreeWheel, { passive: false });
+elements.softSkillTreeCanvas.addEventListener("pointerdown", handleSkillTreePointerDown);
+elements.softSkillTreeCanvas.addEventListener("pointermove", handleSkillTreePointerMove);
+elements.softSkillTreeCanvas.addEventListener("pointerup", endSkillTreePan);
+elements.softSkillTreeCanvas.addEventListener("pointercancel", endSkillTreePan);
+elements.softSkillTreeCanvas.addEventListener("wheel", handleSkillTreeWheel, { passive: false });
 
 render();
 initializeCloudSync();

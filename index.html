@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=skill-card-original" />
   </head>
   <body>
     <main class="app-shell" id="appShell" aria-label="Piano di miglioramento personale">
@@ -22,9 +22,13 @@
       </button>
       <aside class="sidebar sidebar-left" aria-label="Membro del team">
         <section class="panel member-panel">
-          <div class="panel-header">
-            <h2>Membro corrente</h2>
-            <span id="memberCount" class="counter">0</span>
+          <div class="member-panel-actions">
+            <button id="toggleTheme" class="theme-toggle icon-only-button" type="button" aria-label="Passa al tema chiaro" title="Passa al tema chiaro">
+              <img id="themeIcon" class="button-icon-img" src="light theme.png" alt="" aria-hidden="true" />
+            </button>
+            <button id="logoutUser" class="theme-toggle icon-only-button" type="button" aria-label="Esci" title="Esci">
+              <img class="button-icon-img" src="logout.png" alt="" aria-hidden="true" />
+            </button>
           </div>
 
           <div class="member-profile" aria-live="polite">
@@ -37,14 +41,6 @@
 
           <div class="sidebar-session">
             <span id="sessionUser" class="session-user">Accesso</span>
-            <div class="sidebar-session-actions">
-              <button id="toggleTheme" class="theme-toggle icon-only-button" type="button" aria-label="Passa al tema chiaro" title="Passa al tema chiaro">
-                <img id="themeIcon" class="button-icon-img" src="light theme.png" alt="" aria-hidden="true" />
-              </button>
-              <button id="logoutUser" class="theme-toggle icon-only-button" type="button" aria-label="Esci" title="Esci">
-                <img class="button-icon-img" src="logout.png" alt="" aria-hidden="true" />
-              </button>
-            </div>
           </div>
         </section>
 
@@ -61,9 +57,10 @@
         <header class="workspace-header">
           <div>
             <div class="workspace-title-row">
-              <button id="goCurrentWeek" class="scale-button current-week-button" type="button">Week corrente</button>
-              <button id="goRoadmap" class="scale-button roadmap-button" type="button">Roadmap</button>
-              <button id="goSkillTree" class="scale-button skill-tree-button" type="button">Skill tree</button>
+              <button id="goCurrentWeek" class="scale-button current-week-button" type="button">TIMELINE</button>
+              <button id="goRoadmap" class="scale-button roadmap-button" type="button">ROADMAP</button>
+              <button id="goSkillTree" class="scale-button skill-tree-button" type="button">HARD SKILL</button>
+              <button id="goSoftSkillTree" class="scale-button skill-tree-button" type="button">SOFT SKILL</button>
             </div>
           </div>
           <div class="timeline-controls" aria-label="Navigazione temporale">
@@ -96,15 +93,26 @@
           <div id="roadmapCanvas" class="roadmap-canvas" tabindex="0" aria-label="Roadmap scrollabile"></div>
         </section>
 
-        <section id="skillTreeSection" class="roadmap-section skill-tree-section" aria-label="Skill tree">
+        <section id="skillTreeSection" class="roadmap-section skill-tree-section hard-skill-tree-section" aria-label="Hard skill tree">
           <header class="roadmap-header">
             <div>
-              <p class="eyebrow">Skill tree</p>
-              <h2>Skill permanenti</h2>
+              <p class="eyebrow">Hard skill</p>
+              <h2>PLC skill tree</h2>
             </div>
-            <span id="skillTreeSummary" class="roadmap-member">Soft skill + hard skill PLC</span>
+            <span id="skillTreeSummary" class="roadmap-member">0/0 skill sbloccate</span>
           </header>
           <div id="skillTreeCanvas" class="roadmap-canvas skill-tree-canvas" tabindex="0" aria-label="Skill tree navigabile"></div>
+        </section>
+
+        <section id="softSkillTreeSection" class="roadmap-section skill-tree-section soft-skill-tree-section" aria-label="Soft skill tree">
+          <header class="roadmap-header">
+            <div>
+              <p class="eyebrow">Soft skill</p>
+              <h2>Competenze trasversali</h2>
+            </div>
+            <span id="softSkillTreeSummary" class="roadmap-member">0/0 skill sbloccate</span>
+          </header>
+          <div id="softSkillTreeCanvas" class="roadmap-canvas skill-tree-canvas" tabindex="0" aria-label="Soft skill tree navigabile"></div>
         </section>
       </section>
 

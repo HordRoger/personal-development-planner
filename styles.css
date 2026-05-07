@@ -556,9 +556,23 @@ select option:checked {
 .member-profile {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   gap: 12px;
-  padding: 2px 0 4px;
+  padding: 4px 0 2px;
+}
+
+.member-panel {
+  position: relative;
+  padding-top: 54px;
+}
+
+.member-panel-actions {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, 36px);
+  gap: 7px;
 }
 
 .avatar {
@@ -581,18 +595,17 @@ select option:checked {
 }
 
 .member-role {
-  overflow: hidden;
   margin-top: 3px;
   color: rgba(248, 250, 247, 0.58);
   font-size: 0.84rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 760;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .sidebar-session {
   display: grid;
-  gap: 8px;
-  padding: 9px;
+  padding: 9px 10px;
   border: 1px solid rgba(216, 221, 213, 0.14);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.035);
@@ -976,14 +989,15 @@ select option:checked {
 }
 
 .scale-button {
-  min-height: 34px;
-  padding: 0 14px;
+  min-height: 38px;
+  padding: 0 16px;
   border: 0;
   border-radius: 6px;
-  color: rgba(248, 250, 247, 0.72);
+  color: #f8faf7;
   background: transparent;
-  font-size: 0.82rem;
-  font-weight: 800;
+  font-size: 0.88rem;
+  font-weight: 950;
+  line-height: 1;
   white-space: nowrap;
 }
 
@@ -996,9 +1010,9 @@ select option:checked {
 .current-week-button,
 .roadmap-button,
 .skill-tree-button {
-  border: 1px solid rgba(216, 221, 213, 0.22);
-  color: #dff7e8;
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(216, 221, 213, 0.34);
+  color: #f8faf7;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .current-week-button:hover:not(:disabled),
@@ -1105,7 +1119,11 @@ select option:checked {
 .workspace.is-roadmap-view .timeline-frame,
 .workspace.is-roadmap-view .skill-tree-section,
 .workspace.is-skilltree-view .timeline-frame,
-.workspace.is-skilltree-view #roadmapSection {
+.workspace.is-skilltree-view #roadmapSection,
+.workspace.is-skilltree-view .soft-skill-tree-section,
+.workspace.is-soft-skilltree-view .timeline-frame,
+.workspace.is-soft-skilltree-view #roadmapSection,
+.workspace.is-soft-skilltree-view .hard-skill-tree-section {
   display: none;
 }
 
@@ -1118,20 +1136,21 @@ select option:checked {
 
 .roadmap-header h2 {
   color: #ffffff;
-  font-size: 1.18rem;
+  font-size: 1.32rem;
+  font-weight: 950;
   line-height: 1.15;
 }
 
 .roadmap-member {
   overflow: hidden;
   max-width: min(42vw, 460px);
-  padding: 8px 10px;
-  border: 1px solid rgba(216, 221, 213, 0.18);
+  padding: 9px 12px;
+  border: 1px solid rgba(216, 221, 213, 0.32);
   border-radius: 7px;
-  color: rgba(248, 250, 247, 0.66);
-  background: rgba(255, 255, 255, 0.055);
-  font-size: 0.78rem;
-  font-weight: 800;
+  color: #f8faf7;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.86rem;
+  font-weight: 950;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1532,7 +1551,7 @@ select option:checked {
   grid-template-rows: auto 1fr auto;
   width: 270px;
   min-height: 300px;
-  padding: 34px 24px;
+  padding: 32px 24px 30px;
   border: 1px solid color-mix(in srgb, var(--skill-color) 50%, rgba(216, 221, 213, 0.22));
   border-radius: 12px;
   color: #f8faf7;
@@ -1552,17 +1571,19 @@ select option:checked {
 .skill-tree-hover-card strong {
   align-self: start;
   color: #ffffff;
-  font-size: 0.98rem;
+  font-size: 1rem;
   font-weight: 950;
-  line-height: 1.16;
+  letter-spacing: 0;
+  line-height: 1.22;
 }
 
 .skill-tree-hover-card span {
   align-self: end;
-  color: rgba(248, 250, 247, 0.76);
-  font-size: 0.82rem;
-  font-weight: 760;
-  line-height: 1.35;
+  color: rgba(248, 250, 247, 0.84);
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.42;
 }
 
 .skill-tree-node:hover,
